@@ -5,12 +5,14 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "geom2drobotenvs"
 version = "0.1.0"
-description = "A basic starter for Python packages."
+description = " Robot enviroments modelled with 2D geoms."
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
-   "matplotlib",
-   "numpy",
+   "matplotlib==3.8.4",
+   "numpy==1.26.4",
+   "tomsgeoms2d@git+https://github.com/tomsilver/toms-geoms-2d.git",
+   "gym==0.26.0",
 ]
 
 [project.optional-dependencies]

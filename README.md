@@ -2,7 +2,7 @@
 
 ![workflow](https://github.com/tomsilver/geom2d-robot-envs/actions/workflows/ci.yml/badge.svg)
 
-A basic starter for Python packages with GitHub continuous integration.
+ Robot enviroments modelled with 2D geoms.
 
 ## Requirements
 
