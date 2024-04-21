@@ -1,10 +1,19 @@
 """Utilities."""
 
-from typing import Set
+from gym.spaces import Box
+import numpy as np
 
-from geom2drobotenvs.structs import Dog
 
-
-def get_good_dogs_of_breed(dogs: Set[Dog], breed: str) -> Set:
-    """Get all good dogs of the specified breed."""
-    return {d for d in dogs if d.is_good() and d.breed == breed}
+class CRVRobotActionSpace(Box):
+    """An action space for a CRV robot.
+    
+    Actions are bounded relative movements of the base and the arm, as well as
+    an absolute setting for the vacuum."""
+    def __init__(min_dx: float = -1e-1, max_dx: float = 1e-1,
+                                  min_dy: float = -1e-1, max_dy: float = 1e-1,
+                                  min_dtheta: float = -1.0, max_dtheta: float = 1.0,
+                                  min_darm: float = -1e-1, max_darm: float = 1e-1,
+                                  min_vac: float = 0.0, max_vac: float = 1.0) -> None:
+        low = np.array([min_dx, min_dy, min_dtheta, min_darm, min_vac])
+        high = np.array([max_dx, max_dy, max_dtheta, max_darm, max_vac])
+        return super.__init__(low=low, high=high)
