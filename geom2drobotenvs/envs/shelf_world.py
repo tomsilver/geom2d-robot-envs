@@ -126,7 +126,7 @@ class ShelfWorldEnv(gym.Env):
         for obj in self._current_state:
             geoms = object_to_geom2d_list(obj, self._current_state, self._static_object_geom_cache)
             if obj.is_instance(CRVRobotType):
-                color = (0.1, 0.2, 0.3)
+                color = (0.5, 0.6, 0.7)
             else:
                 color = (
                     self._current_state.get(obj, "color_r"),

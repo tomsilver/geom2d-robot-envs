@@ -65,11 +65,20 @@ def _robot_to_geom2d_list(obj: Object, state: State) -> List[Geom2D]:
     )
     theta = state.get(obj, "theta")
     arm_joint = state.get(obj, "arm_joint")
+    gripper_cx = (base.x + np.cos(theta) * arm_joint)
+    gripper_cy = (base.y + np.sin(theta) * arm_joint)
     gripper = Rectangle.from_center(
-        center_x=(base.x + np.cos(theta) * arm_joint),
-        center_y=(base.y + np.sin(theta) * arm_joint),
-        height=(2 * base.radius),
+        center_x=gripper_cx,
+        center_y=gripper_cy,
+        height=(4 * base.radius / 3),
         width=(0.25 * base.radius),
         rotation_about_center=theta,
     )
-    return [base, gripper]
+    link = Rectangle.from_center(
+        center_x=(base.x + gripper_cx)/2,
+        center_y=(base.y + gripper_cy)/2,
+        height=np.sqrt((base.x - gripper_cx)**2 + (base.y - gripper_cy)**2),
+        width=(0.5 * gripper.width),
+        rotation_about_center=(theta + np.pi / 2),
+    )
+    return [link, base, gripper]
