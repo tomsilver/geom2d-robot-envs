@@ -1,8 +1,9 @@
 import gym
-from relational_structs.spaces import ObjectCentricStateSpace
-from geom2drobotenvs.object_types import RectangleType, CRVRobotType
-from geom2drobotenvs.utils import CRVRobotActionSpace
 import numpy as np
+from relational_structs.spaces import ObjectCentricStateSpace
+
+from geom2drobotenvs.object_types import CRVRobotType, RectangleType
+from geom2drobotenvs.utils import CRVRobotActionSpace
 
 
 class ShelfWorldEnv(gym.Env):
@@ -14,16 +15,22 @@ class ShelfWorldEnv(gym.Env):
         self.action_space = CRVRobotActionSpace()
 
     def _get_obs(self):
-        import ipdb; ipdb.set_trace()
+        import ipdb
+
+        ipdb.set_trace()
 
     def _get_info(self):
-        import ipdb; ipdb.set_trace()
+        import ipdb
+
+        ipdb.set_trace()
 
     def reset(self, seed=None, options=None):
         # We need the following line to seed self.np_random.
         super().reset(seed=seed)
 
-        import ipdb; ipdb.set_trace()
+        import ipdb
+
+        ipdb.set_trace()
 
         observation = self._get_obs()
         info = self._get_info()
@@ -31,7 +38,9 @@ class ShelfWorldEnv(gym.Env):
         return observation, info
 
     def step(self, action):
-        import ipdb; ipdb.set_trace()
+        import ipdb
+
+        ipdb.set_trace()
         terminated = ...
         truncated = False  # No maximum horizon, by default
         reward = 1 if terminated else 0  # Binary sparse rewards
@@ -48,7 +57,11 @@ class ShelfWorldEnv(gym.Env):
         return self._render_frame()
 
     def _render_frame(self):
-        import ipdb; ipdb.set_trace()
+        import ipdb
+
+        ipdb.set_trace()
 
     def close(self):
-        import ipdb; ipdb.set_trace()
+        import ipdb
+
+        ipdb.set_trace()
