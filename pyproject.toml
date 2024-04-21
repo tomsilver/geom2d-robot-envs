@@ -14,6 +14,7 @@ dependencies = [
    "tomsgeoms2d@git+https://github.com/tomsilver/toms-geoms-2d.git",
    "relational_structs@git+https://github.com/tomsilver/relational-structs.git",
    "gym==0.26.0",
+   "imageio",
 ]
 
 [project.optional-dependencies]

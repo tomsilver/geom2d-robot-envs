@@ -11,7 +11,9 @@ from geom2drobotenvs.utils import CRVRobotActionSpace
 
 
 class ShelfWorldEnv(gym.Env):
-    metadata = {"render_modes": ["rgb_array"]}
+    # Only RGB rendering is implemented.
+    render_mode = "rgb_array"
+    metadata = {"render_modes": [render_mode]}
 
     # The world is oriented like a standard X/Y coordinate frame.
     _world_min_x: ClassVar[float] = 0.0
@@ -26,6 +28,8 @@ class ShelfWorldEnv(gym.Env):
 
         # Initialized by reset().
         self._current_state: Optional[State] = None
+
+        super().__init__()
 
     def _get_obs(self):
         return self._current_state.copy()
