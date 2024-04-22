@@ -5,7 +5,8 @@ import argparse
 import gym
 from gym.wrappers.record_video import RecordVideo
 
-import geom2drobotenvs
+# Needed to register environments for gym.make().
+import geom2drobotenvs  # pylint: disable=unused-import
 
 
 def _main() -> None:

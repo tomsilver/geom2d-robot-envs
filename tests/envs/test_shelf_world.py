@@ -1,19 +1,20 @@
 """Tests for shelf_world.py."""
 
+from typing import Dict, Tuple
+
 import numpy as np
 from relational_structs.spaces import ObjectCentricStateSpace
-from relational_structs.structs import State, Object
+from relational_structs.structs import Object, State
 from relational_structs.utils import create_state_from_dict
 
-from geom2drobotenvs.envs import ShelfWorldEnv
+from geom2drobotenvs.envs.shelf_world import ShelfWorldEnv
 from geom2drobotenvs.object_types import CRVRobotType, RectangleType
 from geom2drobotenvs.structs import ZOrder
 from geom2drobotenvs.utils import (
     CRVRobotActionSpace,
     create_walls_from_world_boundaries,
-    object_to_body2d
+    object_to_body2d,
 )
-from typing import Dict, Tuple
 
 
 def test_shelf_world_env():
@@ -22,12 +23,12 @@ def test_shelf_world_env():
     assert isinstance(env.observation_space, ObjectCentricStateSpace)
     assert env.observation_space.types == {CRVRobotType, RectangleType}
     assert env.action_space.shape == (5,)
-    obs, info = env.reset(seed=123)
-    assert info == {}
+    obs, _ = env.reset(seed=123)
     assert isinstance(obs, State)
 
 
 def _get_world_boundaries(env: ShelfWorldEnv) -> Tuple[float, float, float, float]:
+    # pylint: disable=protected-access
     return (env._world_min_x, env._world_min_y, env._world_max_x, env._world_max_y)
 
 
@@ -62,13 +63,14 @@ def _create_common_state_dict(env: ShelfWorldEnv) -> Dict[Object, Dict[str, floa
     init_state_dict.update(wall_state_dict)
     return init_state_dict
 
+
 def test_shelf_world_robot_moves():
     """Test basic movements of the robot in ShelfWorldEnv()."""
     env = ShelfWorldEnv()
 
     # Uncomment to record videos.
-    from gym.wrappers.record_video import RecordVideo
-    env = RecordVideo(env, "unit_test_videos")
+    # from gym.wrappers.record_video import RecordVideo
+    # env = RecordVideo(env, "unit_test_videos")
 
     world_min_x, _, world_max_x, world_max_y = _get_world_boundaries(env.unwrapped)
 
@@ -131,7 +133,9 @@ def test_shelf_world_robot_table_collisions():
     init_state_dict = _create_common_state_dict(env.unwrapped)
 
     # Add a table to the right of the robot.
-    world_min_x, world_min_y, world_max_x, world_max_y = _get_world_boundaries(env.unwrapped)
+    world_min_x, world_min_y, world_max_x, world_max_y = _get_world_boundaries(
+        env.unwrapped
+    )
     table = RectangleType("table")
     table_width = (world_max_x - world_min_x) / 100.0
     table_height = (world_max_y - world_min_y) / 3.0

@@ -1,6 +1,6 @@
 """Utilities."""
 
-from typing import Dict, List
+from typing import Dict
 
 import numpy as np
 from gym.spaces import Box
@@ -25,8 +25,8 @@ class CRVRobotActionSpace(Box):
         max_dx: float = 5e-1,
         min_dy: float = -5e-1,
         max_dy: float = 5e-1,
-        min_dtheta: float = -np.pi/16,
-        max_dtheta: float = np.pi/16,
+        min_dtheta: float = -np.pi / 16,
+        max_dtheta: float = np.pi / 16,
         min_darm: float = -1e-1,
         max_darm: float = 1e-1,
         min_vac: float = 0.0,
@@ -34,7 +34,7 @@ class CRVRobotActionSpace(Box):
     ) -> None:
         low = np.array([min_dx, min_dy, min_dtheta, min_darm, min_vac])
         high = np.array([max_dx, max_dy, max_dtheta, max_darm, max_vac])
-        return super().__init__(low, high)
+        super().__init__(low, high)
 
 
 def object_to_body2d(
@@ -55,10 +55,16 @@ def object_to_body2d(
         theta = state.get(obj, "theta")
         geoms = [Rectangle(x, y, width, height, theta)]
         z_orders = [ZOrder(int(state.get(obj, "z_order")))]
-        rendering_kwargs = [{
-            "facecolor": (state.get(obj, "color_r"), state.get(obj, "color_g"), state.get(obj, "color_b")),
-            "edgecolor": "black"
-        }]
+        rendering_kwargs = [
+            {
+                "facecolor": (
+                    state.get(obj, "color_r"),
+                    state.get(obj, "color_g"),
+                    state.get(obj, "color_b"),
+                ),
+                "edgecolor": "black",
+            }
+        ]
         body = Body2D(geoms, z_orders, rendering_kwargs)
     else:
         raise NotImplementedError
@@ -185,7 +191,7 @@ def state_has_collision(
     state: State, static_object_cache: Dict[Object, Body2D]
 ) -> bool:
     """Check if a robot or held object has a collision with another object."""
-    # TODO handle held objects.
+    # NOTE: need to handle held objects.
     obj_to_body = {o: object_to_body2d(o, state, static_object_cache) for o in state}
     for robot in state.get_objects(CRVRobotType):
         obstacles = [o for o in state if o != robot]
@@ -193,7 +199,9 @@ def state_has_collision(
         for robot_geom, robot_z in zip(robot_body.geoms, robot_body.z_orders):
             for obstacle in obstacles:
                 obstacle_body = obj_to_body[obstacle]
-                for obstacle_geom, obstacle_z in zip(obstacle_body.geoms, obstacle_body.z_orders):
+                for obstacle_geom, obstacle_z in zip(
+                    obstacle_body.geoms, obstacle_body.z_orders
+                ):
                     if not z_orders_may_collide(robot_z, obstacle_z):
                         continue
                     if geom2ds_intersect(robot_geom, obstacle_geom):

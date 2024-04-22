@@ -1,12 +1,13 @@
 """Shelf world environment."""
 
-from typing import ClassVar, Dict, List, Optional
+from typing import ClassVar, Dict, Optional, Tuple
 
 import gym
 import matplotlib.pyplot as plt
 import numpy as np
+from numpy.typing import NDArray
 from relational_structs.spaces import ObjectCentricStateSpace
-from relational_structs.structs import Object, State
+from relational_structs.structs import Array, Object, State
 from relational_structs.utils import create_state_from_dict
 from tomsutils.utils import fig2data, wrap_angle
 
@@ -21,6 +22,8 @@ from geom2drobotenvs.utils import (
 
 
 class ShelfWorldEnv(gym.Env):
+    """Shelf world environment."""
+
     # Only RGB rendering is implemented.
     render_mode = "rgb_array"
     metadata = {"render_modes": [render_mode]}
@@ -35,24 +38,27 @@ class ShelfWorldEnv(gym.Env):
     _robot_base_radius: ClassVar[float] = 0.36
     _max_robot_arm_joint: ClassVar[float] = 2.0
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._types = {RectangleType, CRVRobotType}
         self.observation_space = ObjectCentricStateSpace(self._types)
         self.action_space = CRVRobotActionSpace()
 
         # Initialized by reset().
         self._current_state: Optional[State] = None
-        self._static_object_body_cache: Dict[Object, List[Body2D]] = {}
+        self._static_object_body_cache: Dict[Object, Body2D] = {}
 
         super().__init__()
 
-    def _get_obs(self):
+    def _get_obs(self) -> State:
+        assert self._current_state is not None, "Need to call reset()"
         return self._current_state.copy()
 
-    def _get_info(self):
+    def _get_info(self) -> Dict:
         return {}  # no extra info provided
 
-    def reset(self, seed: int = None, options: Optional[Dict] = None):
+    def reset(
+        self, seed: Optional[int] = None, options: Optional[Dict] = None
+    ) -> Tuple[State, Dict]:
         super().reset(seed=seed)
 
         # Need to flush the cache in case static objects move.
@@ -114,10 +120,11 @@ class ShelfWorldEnv(gym.Env):
 
         return observation, info
 
-    def step(self, action):
+    def step(self, action: Array) -> Tuple[State, float, bool, bool, Dict]:
         # NOTE: this should be abstracted out in the future.
         assert self.action_space.contains(action)
         dx, dy, dtheta, darm, vac = action
+        assert self._current_state is not None, "Need to call reset()"
         state = self._current_state.copy()
         robot = next(o for o in state if o.is_instance(CRVRobotType))
 
@@ -146,11 +153,11 @@ class ShelfWorldEnv(gym.Env):
         info = self._get_info()
         return observation, reward, terminated, truncated, info
 
-    def render(self):
+    def render(self) -> NDArray[np.uint8]:
         assert self.render_mode == "rgb_array"
         return self._render_frame()
 
-    def _render_frame(self):
+    def _render_frame(self) -> NDArray[np.uint8]:
         # NOTE: this should be abstracted out in the future.
         figsize = (
             self._world_max_x - self._world_min_x,
@@ -158,16 +165,17 @@ class ShelfWorldEnv(gym.Env):
         )
         fig, ax = plt.subplots(1, 1, figsize=figsize, dpi=self._render_dpi)
 
+        assert self._current_state is not None, "Need to call reset()"
+        state = self._current_state
+
         # Sort objects by ascending z order, with the robot first.
         def _render_order(obj: Object) -> int:
             if obj.is_instance(CRVRobotType):
                 return -1
-            return int(self._current_state.get(obj, "z_order"))
+            return int(state.get(obj, "z_order"))
 
-        for obj in sorted(self._current_state, key=_render_order):
-            body = object_to_body2d(
-                obj, self._current_state, self._static_object_body_cache
-            )
+        for obj in sorted(state, key=_render_order):
+            body = object_to_body2d(obj, state, self._static_object_body_cache)
             body.plot(ax)
 
         pad_x = (self._world_max_x - self._world_min_x) / 25
