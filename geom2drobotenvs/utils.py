@@ -54,7 +54,7 @@ def object_to_body2d(
         height = state.get(obj, "height")
         theta = state.get(obj, "theta")
         geoms = [Rectangle(x, y, width, height, theta)]
-        z_orders = [state.get(obj, "z_order")]
+        z_orders = [ZOrder(int(state.get(obj, "z_order")))]
         rendering_kwargs = [{
             "facecolor": (state.get(obj, "color_r"), state.get(obj, "color_g"), state.get(obj, "color_b")),
             "edgecolor": "black"
