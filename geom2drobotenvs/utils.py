@@ -20,12 +20,12 @@ class CRVRobotActionSpace(Box):
 
     def __init__(
         self,
-        min_dx: float = -1e-1,
-        max_dx: float = 1e-1,
-        min_dy: float = -1e-1,
-        max_dy: float = 1e-1,
-        min_dtheta: float = -1.0,
-        max_dtheta: float = 1.0,
+        min_dx: float = -5e-1,
+        max_dx: float = 5e-1,
+        min_dy: float = -5e-1,
+        max_dy: float = 5e-1,
+        min_dtheta: float = -np.pi/16,
+        max_dtheta: float = np.pi/16,
         min_darm: float = -1e-1,
         max_darm: float = 1e-1,
         min_vac: float = 0.0,

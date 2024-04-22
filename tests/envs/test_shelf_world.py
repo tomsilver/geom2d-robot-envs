@@ -74,8 +74,35 @@ def test_shelf_world_robot_moves():
     right_action[0] = env.action_space.high[0]
     # Also extend the arm while moving, for fun.
     right_action[3] = env.action_space.high[3]
-    for _ in range(100):
+    for _ in range(25):
         obs, _, _, _, _ = env.step(right_action)
+
+    # Assert that we didn't go off screen.
+    assert isinstance(obs, State)
+    robot = obs.get_objects(CRVRobotType)[0]
+    assert obs.get(robot, "x") < world_max_x
+
+    # Move all the way to the left.
+    left_action = np.zeros_like(env.action_space.low)
+    left_action[0] = env.action_space.low[0]
+    for _ in range(25):
+        obs, _, _, _, _ = env.step(left_action)
+
+    # Assert that we didn't go off screen.
+    assert obs.get(robot, "x") > world_min_x
+
+    # Rotate and move up.
+    up_action = np.zeros_like(env.action_space.high)
+    up_action[1] = env.action_space.high[1]
+    up_action[2] = env.action_space.high[2]
+    for _ in range(25):
+        obs, _, _, _, _ = env.step(up_action)
+        # Stop rotating when we get past midnight.
+        if obs.get(robot, "theta") > np.pi / 2:
+            up_action[2] = 0.0
+
+    # Assert that we didn't go off screen.
+    assert obs.get(robot, "y") < world_max_y
 
     # Finish.
     env.close()
