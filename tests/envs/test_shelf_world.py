@@ -31,8 +31,7 @@ def test_shelf_world_robot_moves():
     env = ShelfWorldEnv()
 
     # Uncomment to record videos.
-    # TODO: comment out.
-    env = RecordVideo(env, "unit_test_videos")
+    # env = RecordVideo(env, "unit_test_videos")
 
     world_min_x = env.unwrapped._world_min_x
     world_min_y = env.unwrapped._world_min_y
