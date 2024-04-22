@@ -82,7 +82,7 @@ class ShelfWorldEnv(gym.Env):
             init_state_dict[right_table] = {
                 # Origin is bottom left hand corner.
                 "x": self._world_max_x - (right_table_width + right_table_right_pad),
-                "y": (self._world_min_y + self._world_max_y) / 2.0,
+                "y": (self._world_min_y + self._world_max_y - right_table_height) / 2.0,
                 "width": right_table_width,
                 "height": right_table_height,
                 "theta": 0.0,
