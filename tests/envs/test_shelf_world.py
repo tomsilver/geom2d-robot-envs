@@ -72,6 +72,8 @@ def test_shelf_world_robot_moves():
     # Move all the way to the right. The number is chosen to be gratuitous.
     right_action = np.zeros_like(env.action_space.high)
     right_action[0] = env.action_space.high[0]
+    # Also extend the arm while moving, for fun.
+    right_action[3] = env.action_space.high[3]
     for _ in range(100):
         obs, _, _, _, _ = env.step(right_action)
 
