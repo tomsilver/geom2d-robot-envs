@@ -7,12 +7,15 @@ name = "geom2drobotenvs"
 version = "0.1.0"
 description = " Robot enviroments modelled with 2D geoms."
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
    "matplotlib==3.8.4",
    "numpy==1.26.4",
    "tomsgeoms2d@git+https://github.com/tomsilver/toms-geoms-2d.git",
+   "relational_structs@git+https://github.com/tomsilver/relational-structs.git",
+   "tomsutils@git+https://github.com/tomsilver/toms-utils.git",
    "gym==0.26.0",
+   "moviepy",
 ]
 
 [project.optional-dependencies]
@@ -31,10 +34,10 @@ exclude = ["tests*"]
 
 [tool.black]
 line-length = 88
-target-version = ["py39"]
+target-version = ["py310"]
 
 [tool.isort]
-py_version = 39
+py_version = 310
 profile = "black"
 multi_line_output = 2
 skip_glob = ["venv/*"]
