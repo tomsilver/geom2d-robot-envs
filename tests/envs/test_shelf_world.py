@@ -7,9 +7,11 @@ from relational_structs.utils import create_state_from_dict
 
 from geom2drobotenvs.envs import ShelfWorldEnv
 from geom2drobotenvs.object_types import CRVRobotType, RectangleType
+from geom2drobotenvs.structs import ZOrder
 from geom2drobotenvs.utils import (
     CRVRobotActionSpace,
     create_walls_from_world_boundaries,
+    object_to_body2d
 )
 from typing import Dict, Tuple
 
@@ -65,8 +67,8 @@ def test_shelf_world_robot_moves():
     env = ShelfWorldEnv()
 
     # Uncomment to record videos.
-    # from gym.wrappers.record_video import RecordVideo
-    # env = RecordVideo(env, "unit_test_videos")
+    from gym.wrappers.record_video import RecordVideo
+    env = RecordVideo(env, "unit_test_videos")
 
     world_min_x, _, world_max_x, world_max_y = _get_world_boundaries(env.unwrapped)
 
@@ -74,6 +76,8 @@ def test_shelf_world_robot_moves():
     init_state_dict = _create_common_state_dict(env.unwrapped)
     init_state = create_state_from_dict(init_state_dict)
     obs, _ = env.reset(seed=123, options={"init_state": init_state})
+    assert isinstance(obs, State)
+    robot = obs.get_objects(CRVRobotType)[0]
     assert np.isclose(obs.get(robot, "theta"), 0.0)  # sanity check
 
     # Move all the way to the right. The number is chosen to be gratuitous.
@@ -120,29 +124,31 @@ def test_shelf_world_robot_table_collisions():
     env = ShelfWorldEnv()
 
     # Uncomment to record videos.
-    from gym.wrappers.record_video import RecordVideo
-    env = RecordVideo(env, "unit_test_videos")
+    # from gym.wrappers.record_video import RecordVideo
+    # env = RecordVideo(env, "unit_test_videos")
 
     # Reset the state.
     init_state_dict = _create_common_state_dict(env.unwrapped)
 
     # Add a table to the right of the robot.
     world_min_x, world_min_y, world_max_x, world_max_y = _get_world_boundaries(env.unwrapped)
-    right_table = RectangleType("right_table")
-    right_table_width = (world_max_x - world_min_x) / 10.0
-    right_table_height = (world_max_y - world_min_y) / 3.0
-    right_table_right_pad = right_table_width / 2
-    init_state_dict[right_table] = {
+    table = RectangleType("table")
+    table_width = (world_max_x - world_min_x) / 100.0
+    table_height = (world_max_y - world_min_y) / 3.0
+    table_right_pad = table_width / 2
+    table_x = world_max_x - (10 * table_width + table_right_pad)
+    init_state_dict[table] = {
         # Origin is bottom left hand corner.
-        "x": world_max_x - (right_table_width + right_table_right_pad),
-        "y": (world_min_y + world_max_y - right_table_height) / 2.0,
-        "width": right_table_width,
-        "height": right_table_height,
+        "x": table_x,
+        "y": (world_min_y + world_max_y - table_height) / 2.0,
+        "width": table_width,
+        "height": table_height,
         "theta": 0.0,
         "static": True,  # table can't move
         "color_r": 0.4,  # gray
         "color_g": 0.4,
         "color_b": 0.4,
+        "z_order": ZOrder.FLOOR.value,
     }
 
     init_state = create_state_from_dict(init_state_dict)
@@ -159,6 +165,14 @@ def test_shelf_world_robot_table_collisions():
     right_action[0] = env.action_space.high[0]
     for _ in range(25):
         obs, _, _, _, _ = env.step(right_action)
+
+    # The robot base should be to the left of the table, but the robot gripper
+    # should be to the right of it.
+    assert isinstance(obs, State)
+    robot = obs.get_objects(CRVRobotType)[0]
+    _, base, gripper = object_to_body2d(robot, obs, {}).geoms
+    assert base.x < table_x
+    assert gripper.x > table_x
 
     # Finish.
     env.close()

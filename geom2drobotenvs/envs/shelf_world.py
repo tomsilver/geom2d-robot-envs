@@ -8,14 +8,14 @@ import numpy as np
 from relational_structs.spaces import ObjectCentricStateSpace
 from relational_structs.structs import Object, State
 from relational_structs.utils import create_state_from_dict
-from tomsgeoms2d.structs import Geom2D
 from tomsutils.utils import fig2data, wrap_angle
 
 from geom2drobotenvs.object_types import CRVRobotType, RectangleType
+from geom2drobotenvs.structs import Body2D, ZOrder
 from geom2drobotenvs.utils import (
     CRVRobotActionSpace,
     create_walls_from_world_boundaries,
-    object_to_geom2d_list,
+    object_to_body2d,
     state_has_collision,
 )
 
@@ -42,7 +42,7 @@ class ShelfWorldEnv(gym.Env):
 
         # Initialized by reset().
         self._current_state: Optional[State] = None
-        self._static_object_geom_cache: Dict[Object, List[Geom2D]] = {}
+        self._static_object_body_cache: Dict[Object, List[Body2D]] = {}
 
         super().__init__()
 
@@ -56,7 +56,7 @@ class ShelfWorldEnv(gym.Env):
         super().reset(seed=seed)
 
         # Need to flush the cache in case static objects move.
-        self._static_object_geom_cache = {}
+        self._static_object_body_cache = {}
 
         # For testing purposes only, the options may specify an initial scene.
         if options is not None and "init_state" in options:
@@ -90,6 +90,7 @@ class ShelfWorldEnv(gym.Env):
                 "color_r": 0.4,  # gray
                 "color_g": 0.4,
                 "color_b": 0.4,
+                "z_order": ZOrder.FLOOR.value,
             }
             assert isinstance(self.action_space, CRVRobotActionSpace)
             min_dx, min_dy = self.action_space.low[:2]
@@ -135,7 +136,7 @@ class ShelfWorldEnv(gym.Env):
         state.set(robot, "vacuum", vac)
 
         # Check for collisions, and only update the state if none exist.
-        if not state_has_collision(state, self._static_object_geom_cache):
+        if not state_has_collision(state, self._static_object_body_cache):
             self._current_state = state
 
         terminated = False
@@ -157,20 +158,17 @@ class ShelfWorldEnv(gym.Env):
         )
         fig, ax = plt.subplots(1, 1, figsize=figsize, dpi=self._render_dpi)
 
-        for obj in self._current_state:
-            geoms = object_to_geom2d_list(
-                obj, self._current_state, self._static_object_geom_cache
-            )
+        # Sort objects by ascending z order, with the robot first.
+        def _render_order(obj: Object) -> int:
             if obj.is_instance(CRVRobotType):
-                color = (128 / 255, 0 / 255, 128 / 255)  # purple
-            else:
-                color = (
-                    self._current_state.get(obj, "color_r"),
-                    self._current_state.get(obj, "color_g"),
-                    self._current_state.get(obj, "color_b"),
-                )
-            for geom in geoms:
-                geom.plot(ax, facecolor=color, edgecolor="black")
+                return -1
+            return int(self._current_state.get(obj, "z_order"))
+
+        for obj in sorted(self._current_state, key=_render_order):
+            body = object_to_body2d(
+                obj, self._current_state, self._static_object_body_cache
+            )
+            body.plot(ax)
 
         pad_x = (self._world_max_x - self._world_min_x) / 25
         pad_y = (self._world_max_y - self._world_min_y) / 25

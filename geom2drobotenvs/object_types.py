@@ -4,8 +4,9 @@ from relational_structs.structs import Type
 
 # All geoms have an origin (x, y) and a rotation (in radians), and a bit
 # indicating whether the geom is static (versus movable). They also have RGB.
+# The z_order is an integer used for collision checking.
 Geom2DType = Type(
-    "geom2d", ["x", "y", "theta", "static", "color_r", "color_g", "color_b"]
+    "geom2d", ["x", "y", "theta", "static", "color_r", "color_g", "color_b", "z_order"]
 )
 # Specific geom types.
 RectangleType = Type(
