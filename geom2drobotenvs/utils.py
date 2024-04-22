@@ -1,12 +1,13 @@
 """Utilities."""
 
+from typing import Dict, List
+
 import numpy as np
 from gym.spaces import Box
-
 from relational_structs.structs import Object, State
-from tomsgeoms2d.structs import Geom2D, Rectangle, Circle
-from typing import Dict, List
-from geom2drobotenvs.object_types import Geom2DType, RectangleType, CRVRobotType
+from tomsgeoms2d.structs import Circle, Geom2D, Rectangle
+
+from geom2drobotenvs.object_types import CRVRobotType, Geom2DType, RectangleType
 
 
 class CRVRobotActionSpace(Box):
@@ -34,7 +35,9 @@ class CRVRobotActionSpace(Box):
         return super().__init__(low, high)
 
 
-def object_to_geom2d_list(obj: Object, state: State, static_object_cache: Dict[Object, List[Geom2D]]) -> List[Geom2D]:
+def object_to_geom2d_list(
+    obj: Object, state: State, static_object_cache: Dict[Object, List[Geom2D]]
+) -> List[Geom2D]:
     """Create a list of Geom2D instances for objects of standard geom types."""
     if obj.is_instance(CRVRobotType):
         return _robot_to_geom2d_list(obj, state)
@@ -54,7 +57,7 @@ def object_to_geom2d_list(obj: Object, state: State, static_object_cache: Dict[O
     if is_static:
         static_object_cache[obj] = geoms
     return geoms
-    
+
 
 def _robot_to_geom2d_list(obj: Object, state: State) -> List[Geom2D]:
     """Helper for object_to_geom2d_list()."""
@@ -65,8 +68,8 @@ def _robot_to_geom2d_list(obj: Object, state: State) -> List[Geom2D]:
     )
     theta = state.get(obj, "theta")
     arm_joint = state.get(obj, "arm_joint")
-    gripper_cx = (base.x + np.cos(theta) * arm_joint)
-    gripper_cy = (base.y + np.sin(theta) * arm_joint)
+    gripper_cx = base.x + np.cos(theta) * arm_joint
+    gripper_cy = base.y + np.sin(theta) * arm_joint
     gripper = Rectangle.from_center(
         center_x=gripper_cx,
         center_y=gripper_cy,
@@ -75,9 +78,9 @@ def _robot_to_geom2d_list(obj: Object, state: State) -> List[Geom2D]:
         rotation_about_center=theta,
     )
     link = Rectangle.from_center(
-        center_x=(base.x + gripper_cx)/2,
-        center_y=(base.y + gripper_cy)/2,
-        height=np.sqrt((base.x - gripper_cx)**2 + (base.y - gripper_cy)**2),
+        center_x=(base.x + gripper_cx) / 2,
+        center_y=(base.y + gripper_cy) / 2,
+        height=np.sqrt((base.x - gripper_cx) ** 2 + (base.y - gripper_cy) ** 2),
         width=(0.5 * gripper.width),
         rotation_about_center=(theta + np.pi / 2),
     )
