@@ -57,7 +57,7 @@ class ShelfWorldEnv(gym.Env):
         return {}  # no extra info provided
 
     def reset(
-        self, seed: Optional[int] = None, options: Optional[Dict] = None
+        self, *, seed: Optional[int] = None, options: Optional[Dict] = None
     ) -> Tuple[State, Dict]:
         super().reset(seed=seed)
 
