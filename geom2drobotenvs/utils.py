@@ -6,6 +6,7 @@ import numpy as np
 from gym.spaces import Box
 from relational_structs.structs import Object, State
 from tomsgeoms2d.structs import Circle, Geom2D, Rectangle
+from tomsgeoms2d.utils import geom2ds_intersect
 
 from geom2drobotenvs.object_types import CRVRobotType, Geom2DType, RectangleType
 
@@ -158,3 +159,20 @@ def create_walls_from_world_boundaries(
         "color_b": 0.1,
     }
     return state_dict
+
+
+def state_has_collision(
+    state: State, static_object_cache: Dict[Object, List[Geom2D]]
+) -> bool:
+    """Check if a robot or held object has a collision with another object."""
+    # TODO handle held objects.
+    for robot in state.get_objects(CRVRobotType):
+        obstacles = [o for o in state if o != robot]
+        for robot_geom in object_to_geom2d_list(robot, state, static_object_cache):
+            for obstacle in obstacles:
+                for obstacle_geom in object_to_geom2d_list(
+                    obstacle, state, static_object_cache
+                ):
+                    if geom2ds_intersect(robot_geom, obstacle_geom):
+                        return True
+    return False

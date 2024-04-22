@@ -16,6 +16,7 @@ from geom2drobotenvs.utils import (
     CRVRobotActionSpace,
     create_walls_from_world_boundaries,
     object_to_geom2d_list,
+    state_has_collision,
 )
 
 
@@ -132,7 +133,11 @@ class ShelfWorldEnv(gym.Env):
         state.set(robot, "arm_joint", new_arm)
         state.set(robot, "theta", new_theta)
         state.set(robot, "vacuum", vac)
-        self._current_state = state
+
+        # Check for collisions, and only update the state if none exist.
+        if not state_has_collision(state, self._static_object_geom_cache):
+            self._current_state = state
+
         terminated = False
         truncated = False  # No maximum horizon, by default
         reward = 1 if terminated else 0  # Binary sparse rewards
