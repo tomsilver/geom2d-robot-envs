@@ -9,6 +9,10 @@ from relational_structs.utils import create_state_from_dict
 
 from geom2drobotenvs.envs import ShelfWorldEnv
 from geom2drobotenvs.object_types import CRVRobotType, RectangleType
+from geom2drobotenvs.utils import (
+    CRVRobotActionSpace,
+    create_walls_from_world_boundaries,
+)
 
 
 def test_shelf_world_env():
@@ -30,28 +34,45 @@ def test_shelf_world_robot_moves():
     # TODO: comment out.
     env = RecordVideo(env, "unit_test_videos")
 
+    world_min_x = env.unwrapped._world_min_x
+    world_min_y = env.unwrapped._world_min_y
+    world_max_x = env.unwrapped._world_max_x
+    world_max_y = env.unwrapped._world_max_y
+
     # Set up an initial scene with just the robot.
     robot = CRVRobotType("robot")
     init_state_dict = {
         robot: {
-            "x": 5.0,  # center of room
-            "y": 5.0,
-            "theta": 0.0,  # facing right
+            "x": (world_min_x + world_max_x) / 2,
+            "y": (world_min_y + world_max_y) / 2,
+            "theta": 0.0,
             "base_radius": 0.5,
-            "arm_joint": 0.5,  # arm is fully retracted
-            "vacuum": 0.0,  # vacuum is off
+            "arm_joint": 0.5,
+            "vacuum": 0.0,
         }
     }
+    assert isinstance(env.action_space, CRVRobotActionSpace)
+    min_dx, min_dy = env.action_space.low[:2]
+    max_dx, max_dy = env.action_space.high[:2]
+    wall_state_dict = create_walls_from_world_boundaries(
+        world_min_x,
+        world_max_x,
+        world_min_y,
+        world_max_y,
+        min_dx,
+        max_dx,
+        min_dy,
+        max_dy,
+    )
+    init_state_dict.update(wall_state_dict)
     init_state = create_state_from_dict(init_state_dict)
     obs, _ = env.reset(seed=123, options={"init_state": init_state})
     assert np.isclose(obs.get(robot, "theta"), 0.0)  # sanity check
 
     # Move all the way to the right. The number is chosen to be gratuitous.
-    action_space = env.action_space
-    assert isinstance(action_space, Box)
-    right_action = np.zeros_like(action_space.high)
-    right_action[0] = action_space.high[0]
-    for _ in range(50):
+    right_action = np.zeros_like(env.action_space.high)
+    right_action[0] = env.action_space.high[0]
+    for _ in range(100):
         obs, _, _, _, _ = env.step(right_action)
 
     # Finish.

@@ -12,7 +12,11 @@ from tomsgeoms2d.structs import Geom2D
 from tomsutils.utils import fig2data, wrap_angle
 
 from geom2drobotenvs.object_types import CRVRobotType, RectangleType
-from geom2drobotenvs.utils import CRVRobotActionSpace, object_to_geom2d_list
+from geom2drobotenvs.utils import (
+    CRVRobotActionSpace,
+    create_walls_from_world_boundaries,
+    object_to_geom2d_list,
+)
 
 
 class ShelfWorldEnv(gym.Env):
@@ -86,6 +90,20 @@ class ShelfWorldEnv(gym.Env):
                 "color_g": 0.4,
                 "color_b": 0.4,
             }
+            assert isinstance(self.action_space, CRVRobotActionSpace)
+            min_dx, min_dy = self.action_space.low[:2]
+            max_dx, max_dy = self.action_space.high[:2]
+            wall_state_dict = create_walls_from_world_boundaries(
+                self._world_min_x,
+                self._world_max_x,
+                self._world_min_y,
+                self._world_max_y,
+                min_dx,
+                max_dx,
+                min_dy,
+                max_dy,
+            )
+            init_state_dict.update(wall_state_dict)
             # Finalize state.
             self._current_state = create_state_from_dict(init_state_dict)
 
@@ -100,12 +118,11 @@ class ShelfWorldEnv(gym.Env):
         dx, dy, dtheta, darm, vac = action
         state = self._current_state.copy()
         robot = next(o for o in state if o.is_instance(CRVRobotType))
-        new_x = np.clip(
-            state.get(robot, "x") + dx, self._world_min_x, self._world_max_x
-        )
-        new_y = np.clip(
-            state.get(robot, "y") + dy, self._world_min_y, self._world_max_y
-        )
+
+        # NOTE: xy clipping is not needed because world boundaries are handled
+        # by collision detection with walls.
+        new_x = state.get(robot, "x") + dx
+        new_y = state.get(robot, "y") + dy
         new_theta = wrap_angle(state.get(robot, "theta") + dtheta)
         min_arm = state.get(robot, "base_radius")
         max_arm = self._max_robot_arm_joint
@@ -140,7 +157,7 @@ class ShelfWorldEnv(gym.Env):
                 obj, self._current_state, self._static_object_geom_cache
             )
             if obj.is_instance(CRVRobotType):
-                color = (0.5, 0.6, 0.7)
+                color = (128 / 255, 0 / 255, 128 / 255)  # purple
             else:
                 color = (
                     self._current_state.get(obj, "color_r"),
@@ -150,10 +167,11 @@ class ShelfWorldEnv(gym.Env):
             for geom in geoms:
                 geom.plot(ax, facecolor=color, edgecolor="black")
 
-        ax.set_xlim(self._world_min_x, self._world_max_x)
-        ax.set_ylim(self._world_min_y, self._world_max_y)
-        ax.set_xticks([])
-        ax.set_yticks([])
+        pad_x = (self._world_max_x - self._world_min_x) / 25
+        pad_y = (self._world_max_y - self._world_min_y) / 25
+        ax.set_xlim(self._world_min_x - pad_x, self._world_max_x + pad_x)
+        ax.set_ylim(self._world_min_y - pad_y, self._world_max_y + pad_y)
+        ax.axis("off")
         plt.tight_layout()
         img = fig2data(fig)
         plt.clf()
