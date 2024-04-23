@@ -9,7 +9,7 @@ from tomsgeoms2d.structs import Circle, Rectangle
 from tomsgeoms2d.utils import geom2ds_intersect
 
 from geom2drobotenvs.object_types import CRVRobotType, Geom2DType, RectangleType
-from geom2drobotenvs.structs import Body2D, MultiBody2D, ZOrder, z_orders_may_collide
+from geom2drobotenvs.structs import Body2D, MultiBody2D, ZOrder, z_orders_may_collide, SE2Pose
 
 
 class CRVRobotActionSpace(Box):
@@ -74,6 +74,7 @@ def object_to_multibody2d(
 
 def _robot_to_multibody2d(obj: Object, state: State) -> MultiBody2D:
     """Helper for object_to_multibody2d()."""
+    assert obj.is_instance(CRVRobotType)
     bodies: List[Body2D] = []
 
     # Base.
@@ -266,3 +267,41 @@ def get_tool_tip_position(state: State, robot: Object) -> Tuple[float, float]:
     tool_tip = tool_tip @ gripper_geom.rotation_matrix.T
     tool_tip = translate_vector + tool_tip
     return (tool_tip[0], tool_tip[1])
+
+
+def get_se2_pose(state: State, obj: Object) -> SE2Pose:
+    """Get the SE2Pose of an object in a given state."""
+    return SE2Pose(
+        x=state.get(obj, "x"),
+        y=state.get(obj, "y"),
+        theta=state.get(obj, "theta"),
+    )
+
+
+def get_relative_se2_transform(state: State, obj1: Object, obj2: Object) -> SE2Pose:
+    """Get the pose of obj2 in the frame of obj1."""
+    world_to_obj1 = get_se2_pose(state, obj1)
+    world_to_obj2 = get_se2_pose(state, obj2)
+    return world_to_obj1.inverse * world_to_obj2
+
+
+def get_suctioned_objects(state: State, robot: Object) -> List[Tuple[Object, SE2Pose]]:
+    """Find objects that are in the suction zone of a CRVRobot and return the
+    associated transform from robot to suctioned object."""
+    # If the robot's vacuum is not on, there are no suctioned objects.
+    if state.get(robot, "vacuum") <= 0.5:
+        return []
+    robot_multibody = _robot_to_multibody2d(robot, state)
+    suction_body = robot_multibody.get_body("suction")
+    # Find MOVABLE objects in collision with the suction geom.
+    movable_objects = [o for o in state if o != robot and state.get(o, "static") < 0.5]
+    suctioned_objects: List[Object] = []
+    for obj in movable_objects:
+        # No point in using a static object cache because these objects are
+        # not static by definition.
+        obj_multibody = object_to_multibody2d(obj, state, {})
+        for obj_body in obj_multibody.bodies:
+            if geom2ds_intersect(suction_body.geom, obj_body.geom):
+                robot_to_obj = get_relative_se2_transform(state, robot, obj)
+                suctioned_objects.append((obj, robot_to_obj))
+    return suctioned_objects

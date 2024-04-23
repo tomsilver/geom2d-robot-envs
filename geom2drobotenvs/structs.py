@@ -1,11 +1,17 @@
 """Data structures."""
 
+from __future__ import annotations
+
+import functools
 from dataclasses import dataclass
 from enum import Enum
 from typing import Dict, List
 
 import matplotlib.pyplot as plt
+import numpy as np
+from numpy.typing import NDArray
 from tomsgeoms2d.structs import Geom2D
+from tomsutils.utils import wrap_angle
 
 
 class ZOrder(Enum):
@@ -59,3 +65,39 @@ class MultiBody2D:
             if body.name == name:
                 return body
         raise ValueError(f"Multibody {self.name} does not contain body {name}")
+
+
+@dataclass(frozen=True)
+class SE2Pose:
+    """Container for an SE2Pose.
+
+    In the future, may want to move this to a more general repository,
+    e.g., tomsgeoms2d.
+    """
+
+    x: float
+    y: float
+    theta: float  # [-pi, pi]
+
+    @functools.cached_property
+    def inverse(self) -> SE2Pose:
+        """Invert the pose."""
+        c = np.cos(self.theta)
+        s = np.sin(self.theta)
+        return SE2Pose(-self.x * c - self.y * s, self.x * s - self.y * c, -self.theta)
+
+    def __mul__(self, other: SE2Pose) -> SE2Pose:
+        """Multiply two poses together."""
+        rotated_pos = self.rotation_matrix.dot((other.x, other.y))
+        return SE2Pose(
+            self.x + rotated_pos[0],
+            self.y + rotated_pos[1],
+            wrap_angle(self.theta + other.theta),
+        )
+
+    @functools.cached_property
+    def rotation_matrix(self) -> NDArray[np.float32]:
+        """Create and cache the rotation matrix for this pose."""
+        c = np.cos(self.theta)
+        s = np.sin(self.theta)
+        return np.array([[c, -s], [s, c]])

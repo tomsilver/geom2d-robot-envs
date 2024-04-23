@@ -275,8 +275,15 @@ def test_shelf_world_vacuum():
     for _ in range(5):  # gratuitous
         obs, _, _, _, _ = env.step(left_action)
 
+    # Spin around to make sure visually that the block goes with the arm.
+    spin_action = np.zeros_like(env.action_space.high)
+    spin_action[2] = env.action_space.high[2]
+    spin_action[4]= 1.0
+    for _ in range(32):
+        obs, _, _, _, _ = env.step(spin_action)
+
     block_x = obs.get(block, "x")
-    # assert block_x < table_x
+    assert block_x < table_x
 
     # Finish.
     env.close()
