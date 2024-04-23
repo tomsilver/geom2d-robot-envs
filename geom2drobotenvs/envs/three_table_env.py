@@ -36,53 +36,118 @@ class ThreeTableEnv(Geom2DRobotEnv):
             "vacuum": 0.0,  # vacuum is off
         }
 
+        # Common features for tables.
+        common_table_feats = {
+            "theta": 0.0,
+            "static": True,
+            "color_r": 139 / 255,
+            "color_g": 139 / 255,
+            "color_b": 139 / 255,
+            "z_order": ZOrder.FLOOR.value,
+        }
+
         # Create a table on the right.
         right_table = RectangleType("right_table")
-        right_table_width = (self._world_max_x - self._world_min_x) / 5.0
-        right_table_height = (self._world_max_y - self._world_min_y) / 7.0
-        right_table_right_pad = right_table_width / 2
+        table_long_size = (self._world_max_x - self._world_min_x) / 5.0
+        table_short_size = (self._world_max_y - self._world_min_y) / 7.0
+        right_table_right_pad = table_long_size / 2
+        right_table_x = self._world_max_x - (table_long_size + right_table_right_pad)
+        right_table_y = (self._world_min_y + self._world_max_y - table_short_size) / 2.0
         init_state_dict[right_table] = {
-            "x": self._world_max_x - (right_table_width + right_table_right_pad),
-            "y": (self._world_min_y + self._world_max_y - right_table_height) / 2.0,
-            "width": right_table_width,
-            "height": right_table_height,
-            "theta": 0.0,
-            "static": True,  # table can't move
-            "color_r": 139 / 255,  # brown
-            "color_g": 39 / 255,
-            "color_b": 19 / 255,
-            "z_order": ZOrder.FLOOR.value,
+            "x": right_table_x,
+            "y": right_table_y,
+            "width": table_long_size,
+            "height": table_short_size,
+            **common_table_feats,
         }
 
         # Create a table on the left.
         left_table = RectangleType("left_table")
+        left_table_x =  self._world_min_x + (table_long_size - right_table_right_pad)
+        left_table_y = (self._world_min_y + self._world_max_y - table_short_size) / 2.0
         init_state_dict[left_table] = {
-            "x": self._world_min_x + (right_table_width - right_table_right_pad),
-            "y": (self._world_min_y + self._world_max_y - right_table_height) / 2.0,
-            "width": right_table_width,
-            "height": right_table_height,
-            "theta": 0.0,
-            "static": True,  # table can't move
-            "color_r": 139 / 255,  # brown
-            "color_g": 39 / 255,
-            "color_b": 19 / 255,
-            "z_order": ZOrder.FLOOR.value,
+            "x": left_table_x,
+            "y": left_table_y,
+            "width": table_long_size,
+            "height": table_short_size,
+            **common_table_feats,
+
         }
 
         # Create a table on the bottom.
         bottom_table = RectangleType("bottom_table")
         init_state_dict[bottom_table] = {
-            "x": robot_x - (right_table_height / 2),
+            "x": robot_x - (table_short_size / 2),
             "y": self._world_min_x + right_table_right_pad,
-            "width": right_table_height,
-            "height": right_table_width,
-            "theta": 0.0,
-            "static": True,  # table can't move
-            "color_r": 139 / 255,  # brown
-            "color_g": 39 / 255,
-            "color_b": 19 / 255,
-            "z_order": ZOrder.FLOOR.value,
+            "width": table_short_size,
+            "height": table_long_size,
+            **common_table_feats,
         }
+
+        # Common features for table walls.
+        common_table_wall_feats = {
+            "theta": 0.0,
+            "static": True,
+            "color_r": 72 / 255,
+            "color_g": 60 / 255,
+            "color_b": 50 / 255,
+            "z_order": ZOrder.SURFACE.value,
+        }
+
+        # Create right table walls.
+        right_table_top_wall = RectangleType("right_table_top_wall")
+        wall_thickness = table_long_size / 10.0
+        init_state_dict[right_table_top_wall] = {
+            "x": right_table_x,
+            "y": right_table_y + table_short_size - wall_thickness,
+            "width": table_long_size,
+            "height": wall_thickness,
+            **common_table_wall_feats,
+        }
+        right_table_bottom_wall = RectangleType("right_table_bottom_wall")
+        init_state_dict[right_table_bottom_wall] = {
+            "x": right_table_x,
+            "y": right_table_y,
+            "width": table_long_size,
+            "height": wall_thickness,
+            **common_table_wall_feats,
+        }
+        right_table_back_wall = RectangleType("right_table_back_wall")
+        init_state_dict[right_table_back_wall] = {
+            "x": right_table_x + table_long_size - wall_thickness,
+            "y": right_table_y + wall_thickness,
+            "width": wall_thickness,
+            "height": table_short_size - 2 * wall_thickness,
+            **common_table_wall_feats,
+        }
+
+        # Create left table walls.
+        left_table_top_wall = RectangleType("left_table_top_wall")
+        wall_thickness = table_long_size / 10.0
+        init_state_dict[left_table_top_wall] = {
+            "x": left_table_x,
+            "y": left_table_y + table_short_size - wall_thickness,
+            "width": table_long_size,
+            "height": wall_thickness,
+            **common_table_wall_feats,
+        }
+        left_table_bottom_wall = RectangleType("left_table_bottom_wall")
+        init_state_dict[left_table_bottom_wall] = {
+            "x": left_table_x,
+            "y": left_table_y,
+            "width": table_long_size,
+            "height": wall_thickness,
+            **common_table_wall_feats,
+        }
+        left_table_back_wall = RectangleType("left_table_back_wall")
+        init_state_dict[left_table_back_wall] = {
+            "x": left_table_x,
+            "y": left_table_y + wall_thickness,
+            "width": wall_thickness,
+            "height": table_short_size - 2 * wall_thickness,
+            **common_table_wall_feats,
+        }
+
 
         # Create walls.
         assert isinstance(self.action_space, CRVRobotActionSpace)
