@@ -190,9 +190,9 @@ def test_shelf_world_vacuum():
     env = ShelfWorldEnv()
 
     # Uncomment to record videos.
-    from gym.wrappers.record_video import RecordVideo
+    # from gym.wrappers.record_video import RecordVideo
+    # env = RecordVideo(env, "unit_test_videos")
 
-    env = RecordVideo(env, "unit_test_videos")
     assert isinstance(env.action_space, CRVRobotActionSpace)
 
     # Reset the state.
@@ -272,18 +272,40 @@ def test_shelf_world_vacuum():
     left_action = np.zeros_like(env.action_space.high)
     left_action[0] = env.action_space.low[0]
     left_action[4] = 1.0  # turn on vacuum
-    for _ in range(5):  # gratuitous
+    for _ in range(5):
         obs, _, _, _, _ = env.step(left_action)
+
+    block_x = obs.get(block, "x")
+    assert block_x < table_x
 
     # Spin around to make sure visually that the block goes with the arm.
     spin_action = np.zeros_like(env.action_space.high)
     spin_action[2] = env.action_space.high[2]
-    spin_action[4]= 1.0
-    for _ in range(32):
+    spin_action[4] = 1.0
+    for _ in range(int(2 * np.pi / env.action_space.high[2]) + 1):
         obs, _, _, _, _ = env.step(spin_action)
 
     block_x = obs.get(block, "x")
     assert block_x < table_x
+
+    # Move forward and put the block back on the table.
+    right_action = np.zeros_like(env.action_space.high)
+    right_action[0] = env.action_space.high[0]
+    right_action[4] = 1.0  # turn on vacuum
+    for _ in range(5):
+        obs, _, _, _, _ = env.step(right_action)
+
+    # Need to take a noop action to turn off the vacuum.
+    env.step(np.zeros_like(env.action_space.high))
+
+    # Move backward without the vacuum on.
+    left_action_no_vac = left_action.copy()
+    left_action_no_vac[4] = 0.0
+    for _ in range(5):
+        obs, _, _, _, _ = env.step(left_action_no_vac)
+
+    block_x = obs.get(block, "x")
+    assert block_x > table_x
 
     # Finish.
     env.close()

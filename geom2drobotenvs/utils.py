@@ -9,7 +9,13 @@ from tomsgeoms2d.structs import Circle, Rectangle
 from tomsgeoms2d.utils import geom2ds_intersect
 
 from geom2drobotenvs.object_types import CRVRobotType, Geom2DType, RectangleType
-from geom2drobotenvs.structs import Body2D, MultiBody2D, ZOrder, z_orders_may_collide, SE2Pose
+from geom2drobotenvs.structs import (
+    Body2D,
+    MultiBody2D,
+    SE2Pose,
+    ZOrder,
+    z_orders_may_collide,
+)
 
 
 class CRVRobotActionSpace(Box):
