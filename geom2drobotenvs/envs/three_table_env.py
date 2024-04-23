@@ -2,6 +2,7 @@
 
 from typing import ClassVar, Dict
 
+import numpy as np
 from relational_structs.structs import Object, State
 from relational_structs.utils import create_state_from_dict
 
@@ -18,10 +19,10 @@ class ThreeTableEnv(Geom2DRobotEnv):
     """Environment with blocks on three tables."""
 
     _robot_base_radius: ClassVar[float] = 0.36
+    _num_blocks: ClassVar[int] = 6
 
     def _sample_initial_state(self) -> State:
-        # Currently randomize just the order of blocks in the shelves. Can
-        # also randomize the positions of stuff in the future.
+        # Currently nothing is randomized; this will change in the future.
         init_state_dict: Dict[Object, Dict[str, float]] = {}
 
         # Create the robot, initially facing right, at the center of the room.
@@ -40,9 +41,9 @@ class ThreeTableEnv(Geom2DRobotEnv):
         common_table_feats = {
             "theta": 0.0,
             "static": True,
-            "color_r": 139 / 255,
-            "color_g": 139 / 255,
-            "color_b": 139 / 255,
+            "color_r": 200 / 255,
+            "color_g": 200 / 255,
+            "color_b": 200 / 255,
             "z_order": ZOrder.FLOOR.value,
         }
 
@@ -174,7 +175,41 @@ class ThreeTableEnv(Geom2DRobotEnv):
             **common_table_wall_feats,
         }
 
-        # Create walls.
+        # Create blocks that need to be moved around.
+        common_block_feats = {
+            "theta": 0.0,
+            "static": False,
+            "color_r": 173 / 255,  # blue
+            "color_g": 216 / 255,
+            "color_b": 230 / 255,
+            "z_order": ZOrder.SURFACE.value,
+        }
+        block_max_thickness = (table_long_size - wall_thickness) / self._num_blocks
+        block_thickness = 0.5 * block_max_thickness  # conservative
+        block_max_long_size = table_short_size - 2 * wall_thickness
+        largest_block_long_size = 0.8 * block_max_long_size  # conservative
+        smallest_block_long_size = largest_block_long_size / 2
+        block_long_sizes = np.linspace(
+            largest_block_long_size,
+            smallest_block_long_size,
+            self._num_blocks,
+            endpoint=True,
+        )
+        for block_num, block_size in enumerate(block_long_sizes):
+            # For now, all blocks are initialized on the right table.
+            table_back_x = right_table_x + table_long_size - wall_thickness
+            pad_x = 0.75 * block_thickness
+            block_x = table_back_x - (block_num + 1) * (block_thickness + pad_x)
+            block_y = right_table_y + table_short_size / 2 - block_size / 2
+            init_state_dict[RectangleType(f"block{block_num}")] = {
+                "x": block_x,
+                "y": block_y,
+                "width": block_thickness,
+                "height": block_size,
+                **common_block_feats,
+            }
+
+        # Create room walls.
         assert isinstance(self.action_space, CRVRobotActionSpace)
         min_dx, min_dy = self.action_space.low[:2]
         max_dx, max_dy = self.action_space.high[:2]

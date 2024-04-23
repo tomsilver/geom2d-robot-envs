@@ -41,7 +41,7 @@ class Geom2DRobotEnv(gym.Env):
     _world_max_y: ClassVar[float] = 10.0
 
     # Arm length for the robot.
-    _max_robot_arm_joint: ClassVar[float] = 2.0
+    _max_robot_arm_joint: ClassVar[float] = 3.0
 
     def __init__(self) -> None:
         self._types = {RectangleType, CRVRobotType}
