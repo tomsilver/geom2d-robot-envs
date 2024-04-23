@@ -267,6 +267,7 @@ def test_shelf_world_vacuum():
     # Move backward and verify that the block has moved with us.
     left_action = np.zeros_like(env.action_space.high)
     left_action[0] = env.action_space.low[0]
+    left_action[4] = 1.0  # turn on vacuum
     for _ in range(5):  # gratuitous
         obs, _, _, _, _ = env.step(left_action)
 
