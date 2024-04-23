@@ -11,13 +11,16 @@ from tomsgeoms2d.structs import Geom2D
 class ZOrder(Enum):
     """Used for collision checking."""
 
+    NONE = 0  # collides with nothing
     FLOOR = 1  # collides with things on the floor
     SURFACE = 2  # collides with things at the table surface level
-    ALL = 100  # collides with everyone
+    ALL = 100  # collides with everyone (except NONE)
 
 
 def z_orders_may_collide(z0: ZOrder, z1: ZOrder) -> bool:
     """Defines the semantics of ZOrder collisions."""
+    if ZOrder.NONE in (z0, z1):
+        return False
     if ZOrder.ALL in (z0, z1):
         return True
     return z0 == z1
@@ -25,21 +28,34 @@ def z_orders_may_collide(z0: ZOrder, z1: ZOrder) -> bool:
 
 @dataclass(frozen=True)
 class Body2D:
-    """A body consists of one or more geoms, which each have a z order and
-    rendering kwargs (e.g., facecolor).
+    """A body consists a geom, a z order (for collision checks), and rendering
+    kwargs (for visualization)."""
 
-    The color is for rendering and the z order is for collision
-    checking.
-    """
-
-    geoms: List[Geom2D]
-    z_orders: List[ZOrder]
-    rendering_kwargs: List[Dict]
-
-    def __postinit__(self) -> None:
-        assert len(self.geoms) == len(self.z_orders) == len(self.rendering_kwargs)
+    geom: Geom2D
+    z_order: ZOrder
+    rendering_kwargs: Dict
+    name: str = "root"
 
     def plot(self, ax: plt.Axes) -> None:
         """Render the body in matplotlib."""
-        for geom, z, kwargs in zip(self.geoms, self.z_orders, self.rendering_kwargs):
-            geom.plot(ax=ax, zorder=z.value, **kwargs)
+        self.geom.plot(ax=ax, zorder=self.z_order.value, **self.rendering_kwargs)
+
+
+@dataclass(frozen=True)
+class MultiBody2D:
+    """A container for bodies."""
+
+    name: str
+    bodies: List[Body2D]
+
+    def plot(self, ax: plt.Axes) -> None:
+        """Render the bodies in matplotlib."""
+        for body in self.bodies:
+            body.plot(ax)
+
+    def get_body(self, name: str) -> Body2D:
+        """Retrieve a body by its name."""
+        for body in self.bodies:
+            if body.name == name:
+                return body
+        raise ValueError(f"Multibody {self.name} does not contain body {name}")

@@ -14,7 +14,7 @@ from geom2drobotenvs.utils import (
     CRVRobotActionSpace,
     create_walls_from_world_boundaries,
     get_tool_tip_position,
-    object_to_body2d,
+    object_to_multibody2d,
 )
 
 
@@ -175,7 +175,9 @@ def test_shelf_world_robot_table_collisions():
     # should be to the right of it.
     assert isinstance(obs, State)
     robot = obs.get_objects(CRVRobotType)[0]
-    _, base, gripper = object_to_body2d(robot, obs, {}).geoms
+    multibody = object_to_multibody2d(robot, obs, {})
+    base = multibody.get_body("base").geom
+    gripper = multibody.get_body("gripper").geom
     assert base.x < table_x
     assert gripper.x > table_x
 

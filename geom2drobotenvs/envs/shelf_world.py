@@ -12,11 +12,11 @@ from relational_structs.utils import create_state_from_dict
 from tomsutils.utils import fig2data, wrap_angle
 
 from geom2drobotenvs.object_types import CRVRobotType, RectangleType
-from geom2drobotenvs.structs import Body2D, ZOrder
+from geom2drobotenvs.structs import MultiBody2D, ZOrder
 from geom2drobotenvs.utils import (
     CRVRobotActionSpace,
     create_walls_from_world_boundaries,
-    object_to_body2d,
+    object_to_multibody2d,
     state_has_collision,
 )
 
@@ -45,7 +45,7 @@ class ShelfWorldEnv(gym.Env):
 
         # Initialized by reset().
         self._current_state: Optional[State] = None
-        self._static_object_body_cache: Dict[Object, Body2D] = {}
+        self._static_object_body_cache: Dict[Object, MultiBody2D] = {}
 
         super().__init__()
 
@@ -175,7 +175,7 @@ class ShelfWorldEnv(gym.Env):
             return int(state.get(obj, "z_order"))
 
         for obj in sorted(state, key=_render_order):
-            body = object_to_body2d(obj, state, self._static_object_body_cache)
+            body = object_to_multibody2d(obj, state, self._static_object_body_cache)
             body.plot(ax)
 
         pad_x = (self._world_max_x - self._world_min_x) / 25
