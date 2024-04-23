@@ -63,7 +63,7 @@ class ThreeTableEnv(Geom2DRobotEnv):
 
         # Create a table on the left.
         left_table = RectangleType("left_table")
-        left_table_x =  self._world_min_x + (table_long_size - right_table_right_pad)
+        left_table_x = self._world_min_x + (table_long_size - right_table_right_pad)
         left_table_y = (self._world_min_y + self._world_max_y - table_short_size) / 2.0
         init_state_dict[left_table] = {
             "x": left_table_x,
@@ -71,14 +71,15 @@ class ThreeTableEnv(Geom2DRobotEnv):
             "width": table_long_size,
             "height": table_short_size,
             **common_table_feats,
-
         }
 
         # Create a table on the bottom.
         bottom_table = RectangleType("bottom_table")
+        bottom_table_x = robot_x - (table_short_size / 2)
+        bottom_table_y = self._world_min_x + right_table_right_pad
         init_state_dict[bottom_table] = {
-            "x": robot_x - (table_short_size / 2),
-            "y": self._world_min_x + right_table_right_pad,
+            "x": bottom_table_x,
+            "y": bottom_table_y,
             "width": table_short_size,
             "height": table_long_size,
             **common_table_feats,
@@ -123,7 +124,6 @@ class ThreeTableEnv(Geom2DRobotEnv):
 
         # Create left table walls.
         left_table_top_wall = RectangleType("left_table_top_wall")
-        wall_thickness = table_long_size / 10.0
         init_state_dict[left_table_top_wall] = {
             "x": left_table_x,
             "y": left_table_y + table_short_size - wall_thickness,
@@ -148,6 +148,31 @@ class ThreeTableEnv(Geom2DRobotEnv):
             **common_table_wall_feats,
         }
 
+        # Create bottom table walls.
+        bottom_table_left_wall = RectangleType("bottom_table_left_wall")
+        init_state_dict[bottom_table_left_wall] = {
+            "x": bottom_table_x,
+            "y": bottom_table_y,
+            "width": wall_thickness,
+            "height": table_long_size,
+            **common_table_wall_feats,
+        }
+        bottom_table_right_wall = RectangleType("bottom_table_right_wall")
+        init_state_dict[bottom_table_right_wall] = {
+            "x": bottom_table_x + table_short_size - wall_thickness,
+            "y": bottom_table_y,
+            "width": wall_thickness,
+            "height": table_long_size,
+            **common_table_wall_feats,
+        }
+        bottom_table_bottom_wall = RectangleType("bottom_table_bottom_wall")
+        init_state_dict[bottom_table_bottom_wall] = {
+            "x": bottom_table_x + wall_thickness,
+            "y": bottom_table_y,
+            "width": table_short_size - 2 * wall_thickness,
+            "height": wall_thickness,
+            **common_table_wall_feats,
+        }
 
         # Create walls.
         assert isinstance(self.action_space, CRVRobotActionSpace)
