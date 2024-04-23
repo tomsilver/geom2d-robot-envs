@@ -12,11 +12,12 @@ from relational_structs.utils import create_state_from_dict
 from tomsutils.utils import fig2data, wrap_angle
 
 from geom2drobotenvs.object_types import CRVRobotType, RectangleType
-from geom2drobotenvs.structs import Body2D, ZOrder
+from geom2drobotenvs.structs import MultiBody2D, SE2Pose, ZOrder
 from geom2drobotenvs.utils import (
     CRVRobotActionSpace,
     create_walls_from_world_boundaries,
-    object_to_body2d,
+    get_suctioned_objects,
+    object_to_multibody2d,
     state_has_collision,
 )
 
@@ -45,7 +46,7 @@ class ShelfWorldEnv(gym.Env):
 
         # Initialized by reset().
         self._current_state: Optional[State] = None
-        self._static_object_body_cache: Dict[Object, Body2D] = {}
+        self._static_object_body_cache: Dict[Object, MultiBody2D] = {}
 
         super().__init__()
 
@@ -93,9 +94,9 @@ class ShelfWorldEnv(gym.Env):
                 "height": right_table_height,
                 "theta": 0.0,
                 "static": True,  # table can't move
-                "color_r": 0.4,  # gray
-                "color_g": 0.4,
-                "color_b": 0.4,
+                "color_r": 139 / 255,  # brown
+                "color_g": 39 / 255,
+                "color_b": 19 / 255,
                 "z_order": ZOrder.FLOOR.value,
             }
             assert isinstance(self.action_space, CRVRobotActionSpace)
@@ -142,6 +143,14 @@ class ShelfWorldEnv(gym.Env):
         state.set(robot, "theta", new_theta)
         state.set(robot, "vacuum", vac)
 
+        # Update the state of any objects that are currently suctioned.
+        world_to_robot = SE2Pose(new_x, new_y, new_theta)
+        for obj, robot_to_obj in get_suctioned_objects(self._current_state, robot):
+            world_to_obj = world_to_robot * robot_to_obj
+            state.set(obj, "x", world_to_obj.x)
+            state.set(obj, "y", world_to_obj.y)
+            state.set(obj, "theta", world_to_obj.theta)
+
         # Check for collisions, and only update the state if none exist.
         if not state_has_collision(state, self._static_object_body_cache):
             self._current_state = state
@@ -175,7 +184,7 @@ class ShelfWorldEnv(gym.Env):
             return int(state.get(obj, "z_order"))
 
         for obj in sorted(state, key=_render_order):
-            body = object_to_body2d(obj, state, self._static_object_body_cache)
+            body = object_to_multibody2d(obj, state, self._static_object_body_cache)
             body.plot(ax)
 
         pad_x = (self._world_max_x - self._world_min_x) / 25

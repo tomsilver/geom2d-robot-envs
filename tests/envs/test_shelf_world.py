@@ -13,7 +13,8 @@ from geom2drobotenvs.structs import ZOrder
 from geom2drobotenvs.utils import (
     CRVRobotActionSpace,
     create_walls_from_world_boundaries,
-    object_to_body2d,
+    get_tool_tip_position,
+    object_to_multibody2d,
 )
 
 
@@ -149,9 +150,9 @@ def test_shelf_world_robot_table_collisions():
         "height": table_height,
         "theta": 0.0,
         "static": True,  # table can't move
-        "color_r": 0.4,  # gray
-        "color_g": 0.4,
-        "color_b": 0.4,
+        "color_r": 139 / 255,  # brown
+        "color_g": 39 / 255,
+        "color_b": 19 / 255,
         "z_order": ZOrder.FLOOR.value,
     }
 
@@ -174,9 +175,137 @@ def test_shelf_world_robot_table_collisions():
     # should be to the right of it.
     assert isinstance(obs, State)
     robot = obs.get_objects(CRVRobotType)[0]
-    _, base, gripper = object_to_body2d(robot, obs, {}).geoms
+    multibody = object_to_multibody2d(robot, obs, {})
+    base = multibody.get_body("base").geom
+    gripper = multibody.get_body("gripper").geom
     assert base.x < table_x
     assert gripper.x > table_x
+
+    # Finish.
+    env.close()
+
+
+def test_shelf_world_vacuum():
+    """Tests for picking/placing up one or more objects with the vacuum."""
+    env = ShelfWorldEnv()
+
+    # Uncomment to record videos.
+    # from gym.wrappers.record_video import RecordVideo
+    # env = RecordVideo(env, "unit_test_videos")
+
+    assert isinstance(env.action_space, CRVRobotActionSpace)
+
+    # Reset the state.
+    init_state_dict = _create_common_state_dict(env.unwrapped)
+
+    # Add a table to the right of the robot.
+    world_min_x, world_min_y, world_max_x, world_max_y = _get_world_boundaries(
+        env.unwrapped
+    )
+    table = RectangleType("table")
+    table_width = (world_max_x - world_min_x) / 10.0
+    table_height = (world_max_y - world_min_y) / 3.0
+    table_right_pad = table_width / 2
+    table_x = world_max_x - (table_width + table_right_pad)
+    table_y = (world_min_y + world_max_y - table_height) / 2.0
+    init_state_dict[table] = {
+        # Origin is bottom left hand corner.
+        "x": table_x,
+        "y": table_y,
+        "width": table_width,
+        "height": table_height,
+        "theta": 0.0,
+        "static": True,  # table can't move
+        "color_r": 139 / 255,  # brown
+        "color_g": 39 / 255,
+        "color_b": 19 / 255,
+        "z_order": ZOrder.FLOOR.value,
+    }
+
+    # Add a block on the table.
+    block = RectangleType("block")
+    block_width = table_width / 5
+    block_height = table_height / 3
+    block_x = table_x + (table_width - block_width) / 2
+    block_y = table_y + (table_height - block_height) / 2
+    init_state_dict[block] = {
+        "x": block_x,
+        "y": block_y,
+        "width": block_width,
+        "height": block_height,
+        "theta": 0.0,
+        "static": False,  # block CAN move
+        "color_r": 173 / 255,  # blue
+        "color_g": 216 / 255,
+        "color_b": 230 / 255,
+        "z_order": ZOrder.SURFACE.value,  # block is on the table surface
+    }
+
+    init_state = create_state_from_dict(init_state_dict)
+    obs, _ = env.reset(seed=123, options={"init_state": init_state})
+
+    # First extend the arm all the way out and turn on the vacuum.
+    arm_action = np.zeros_like(env.action_space.high)
+    arm_action[3] = env.action_space.high[3]
+    arm_action[4] = 1.0
+    for _ in range(25):  # gratuitous
+        obs, _, _, _, _ = env.step(arm_action)
+
+    # Move to the object that we want to reach.
+    assert isinstance(obs, State)
+    robot = obs.get_objects(CRVRobotType)[0]
+    block_x = obs.get(block, "x")
+    max_dx = env.action_space.high[0]
+    for _ in range(25):  # gratuitous
+        gripper_x = get_tool_tip_position(obs, robot)[0]
+        dx = min(block_x - gripper_x - 1e-6, max_dx)
+        if abs(dx) < 1e-5:
+            break
+        action = np.zeros_like(env.action_space.high)
+        action[0] = dx
+        action[4] = 1.0  # turn on vacuum
+        obs, _, _, _, _ = env.step(action)
+    else:
+        assert False, "Did not reach object to grasp"
+
+    # Move backward and verify that the block has moved with us.
+    left_action = np.zeros_like(env.action_space.high)
+    left_action[0] = env.action_space.low[0]
+    left_action[4] = 1.0  # turn on vacuum
+    for _ in range(5):
+        obs, _, _, _, _ = env.step(left_action)
+
+    block_x = obs.get(block, "x")
+    assert block_x < table_x
+
+    # Spin around to make sure visually that the block goes with the arm.
+    spin_action = np.zeros_like(env.action_space.high)
+    spin_action[2] = env.action_space.high[2]
+    spin_action[4] = 1.0
+    for _ in range(int(2 * np.pi / env.action_space.high[2]) + 1):
+        obs, _, _, _, _ = env.step(spin_action)
+
+    block_x = obs.get(block, "x")
+    assert block_x < table_x
+
+    # Move forward and put the block back on the table.
+    right_action = np.zeros_like(env.action_space.high)
+    right_action[0] = env.action_space.high[0]
+    right_action[4] = 1.0  # turn on vacuum
+    for _ in range(5):
+        obs, _, _, _, _ = env.step(right_action)
+
+    # Need to take a noop action to turn off the vacuum.
+    env.step(np.zeros_like(env.action_space.high))
+
+    # Move backward without the vacuum on.
+    left_action_no_vac = left_action.copy()
+    left_action_no_vac[4] = 0.0
+    for _ in range(5):
+        obs, _, _, _, _ = env.step(left_action_no_vac)
+
+    block_x = obs.get(block, "x")
+    assert block_x > table_x
 
     # Finish.
     env.close()
