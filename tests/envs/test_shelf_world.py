@@ -246,7 +246,7 @@ def test_shelf_world_vacuum():
     arm_action = np.zeros_like(env.action_space.high)
     arm_action[3] = env.action_space.high[3]
     arm_action[4] = 1.0
-    for _ in range(25):
+    for _ in range(25):  # gratuitous
         obs, _, _, _, _ = env.step(arm_action)
 
     # Move to the object that we want to reach.
@@ -254,7 +254,7 @@ def test_shelf_world_vacuum():
     robot = obs.get_objects(CRVRobotType)[0]
     block_x = obs.get(block, "x")
     max_dx = env.action_space.high[0]
-    for _ in range(25):
+    for _ in range(25):  # gratuitous
         gripper_x = get_tool_tip_position(obs, robot)[0]
         dx = min(block_x - gripper_x - 1e-6, max_dx)
         if abs(dx) < 1e-5:
@@ -263,6 +263,15 @@ def test_shelf_world_vacuum():
         action[0] = dx
         action[4] = 1.0  # turn on vacuum
         obs, _, _, _, _ = env.step(action)
+
+    # Move backward and verify that the block has moved with us.
+    left_action = np.zeros_like(env.action_space.high)
+    left_action[0] = env.action_space.low[0]
+    for _ in range(5):  # gratuitous
+        obs, _, _, _, _ = env.step(left_action)
+
+    block_x = obs.get(block, "x")
+    assert block_x < table_x
 
     # Finish.
     env.close()
