@@ -11,10 +11,10 @@ from tomsgeoms2d.structs import Geom2D
 class ZOrder(Enum):
     """Used for collision checking."""
 
-    NONE = 0  # collides with nothing
     FLOOR = 1  # collides with things on the floor
     SURFACE = 2  # collides with things at the table surface level
     ALL = 100  # collides with everyone (except NONE)
+    NONE = 101  # collides with nothing
 
 
 def z_orders_may_collide(z0: ZOrder, z1: ZOrder) -> bool:

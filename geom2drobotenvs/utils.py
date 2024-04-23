@@ -127,7 +127,7 @@ def _robot_to_multibody2d(obj: Object, state: State) -> MultiBody2D:
     # If the vacuum is on, add a suction area.
     if state.get(obj, "vacuum") > 0.5:
         suction_height = gripper_height
-        suction_width = gripper_width / 5
+        suction_width = gripper_width / 3
         suction_cx = base_x + np.cos(theta) * (arm_joint + gripper_width / 2)
         suction_cy = base_y + np.sin(theta) * (arm_joint + gripper_width / 2)
         geom = Rectangle.from_center(
@@ -137,7 +137,7 @@ def _robot_to_multibody2d(obj: Object, state: State) -> MultiBody2D:
             width=suction_width,
             rotation_about_center=theta,
         )
-        z_order = ZOrder.SURFACE
+        z_order = ZOrder.NONE  # NOTE: suction collides with nothing
         yellow = (255 / 255, 255 / 255, 153 / 255)
         rendering_kwargs = {"facecolor": yellow}
         suction = Body2D(geom, z_order, rendering_kwargs, name="suction")
