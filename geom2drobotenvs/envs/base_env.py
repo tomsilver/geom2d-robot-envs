@@ -1,5 +1,6 @@
-"""Shelf world environment."""
+"""Base class for Geom2D robot environments."""
 
+import abc
 from typing import ClassVar, Dict, Optional, Tuple
 
 import gym
@@ -8,22 +9,24 @@ import numpy as np
 from numpy.typing import NDArray
 from relational_structs.spaces import ObjectCentricStateSpace
 from relational_structs.structs import Array, Object, State
-from relational_structs.utils import create_state_from_dict
 from tomsutils.utils import fig2data, wrap_angle
 
 from geom2drobotenvs.object_types import CRVRobotType, RectangleType
-from geom2drobotenvs.structs import MultiBody2D, SE2Pose, ZOrder
+from geom2drobotenvs.structs import MultiBody2D, SE2Pose
 from geom2drobotenvs.utils import (
     CRVRobotActionSpace,
-    create_walls_from_world_boundaries,
     get_suctioned_objects,
     object_to_multibody2d,
     state_has_collision,
 )
 
 
-class ShelfWorldEnv(gym.Env):
-    """Shelf world environment."""
+class Geom2DRobotEnv(gym.Env):
+    """Base class for Geom2D robot environments.
+
+    NOTE: this implementation currently assumes we are using CRVRobotType.
+    If we add other robot types in the future, we will need to refactor a bit.
+    """
 
     # Only RGB rendering is implemented.
     render_mode = "rgb_array"
@@ -31,13 +34,14 @@ class ShelfWorldEnv(gym.Env):
     _render_dpi: int = 150
 
     # The world is oriented like a standard X/Y coordinate frame.
+    # Subclasses may override.
     _world_min_x: ClassVar[float] = 0.0
     _world_max_x: ClassVar[float] = 10.0
     _world_min_y: ClassVar[float] = 0.0
     _world_max_y: ClassVar[float] = 10.0
 
-    _robot_base_radius: ClassVar[float] = 0.36
-    _max_robot_arm_joint: ClassVar[float] = 2.0
+    # Arm length for the robot.
+    _max_robot_arm_joint: ClassVar[float] = 3.0
 
     def __init__(self) -> None:
         self._types = {RectangleType, CRVRobotType}
@@ -50,12 +54,16 @@ class ShelfWorldEnv(gym.Env):
 
         super().__init__()
 
+    @abc.abstractmethod
+    def _sample_initial_state(self) -> State:
+        """Use self.np_random to sample an initial state."""
+
     def _get_obs(self) -> State:
         assert self._current_state is not None, "Need to call reset()"
         return self._current_state.copy()
 
     def _get_info(self) -> Dict:
-        return {}  # no extra info provided
+        return {}  # no extra info provided right now
 
     def reset(
         self, *, seed: Optional[int] = None, options: Optional[Dict] = None
@@ -71,50 +79,7 @@ class ShelfWorldEnv(gym.Env):
 
         # Otherwise, set up the initial scene here.
         else:
-            # Coming soon: randomization.
-            init_state_dict: Dict[Object, Dict[str, float]] = {}
-            robot = CRVRobotType("robot")
-            init_state_dict[robot] = {
-                "x": (self._world_min_x + self._world_max_x) / 2.0,  # center of room
-                "y": (self._world_min_y + self._world_max_y) / 2.0,
-                "theta": 0.0,  # facing right
-                "base_radius": self._robot_base_radius,
-                "arm_joint": self._robot_base_radius,  # arm is fully retracted
-                "vacuum": 0.0,  # vacuum is off
-            }
-            right_table = RectangleType("right_table")
-            right_table_width = (self._world_max_x - self._world_min_x) / 10.0
-            right_table_height = (self._world_max_y - self._world_min_y) / 3.0
-            right_table_right_pad = right_table_width / 2
-            init_state_dict[right_table] = {
-                # Origin is bottom left hand corner.
-                "x": self._world_max_x - (right_table_width + right_table_right_pad),
-                "y": (self._world_min_y + self._world_max_y - right_table_height) / 2.0,
-                "width": right_table_width,
-                "height": right_table_height,
-                "theta": 0.0,
-                "static": True,  # table can't move
-                "color_r": 139 / 255,  # brown
-                "color_g": 39 / 255,
-                "color_b": 19 / 255,
-                "z_order": ZOrder.FLOOR.value,
-            }
-            assert isinstance(self.action_space, CRVRobotActionSpace)
-            min_dx, min_dy = self.action_space.low[:2]
-            max_dx, max_dy = self.action_space.high[:2]
-            wall_state_dict = create_walls_from_world_boundaries(
-                self._world_min_x,
-                self._world_max_x,
-                self._world_min_y,
-                self._world_max_y,
-                min_dx,
-                max_dx,
-                min_dy,
-                max_dy,
-            )
-            init_state_dict.update(wall_state_dict)
-            # Finalize state.
-            self._current_state = create_state_from_dict(init_state_dict)
+            self._current_state = self._sample_initial_state()
 
         observation = self._get_obs()
         info = self._get_info()
@@ -122,15 +87,16 @@ class ShelfWorldEnv(gym.Env):
         return observation, info
 
     def step(self, action: Array) -> Tuple[State, float, bool, bool, Dict]:
-        # NOTE: this should be abstracted out in the future.
         assert self.action_space.contains(action)
         dx, dy, dtheta, darm, vac = action
         assert self._current_state is not None, "Need to call reset()"
         state = self._current_state.copy()
-        robot = next(o for o in state if o.is_instance(CRVRobotType))
+        robots = [o for o in state if o.is_instance(CRVRobotType)]
+        assert len(robots) == 1, "Multi-robot not yet supported"
+        robot = robots[0]
 
-        # NOTE: xy clipping is not needed because world boundaries are handled
-        # by collision detection with walls.
+        # NOTE: xy clipping is not needed because world boundaries are assumed
+        # handled by collision detection with walls.
         new_x = state.get(robot, "x") + dx
         new_y = state.get(robot, "y") + dy
         new_theta = wrap_angle(state.get(robot, "theta") + dtheta)
@@ -155,6 +121,7 @@ class ShelfWorldEnv(gym.Env):
         if not state_has_collision(state, self._static_object_body_cache):
             self._current_state = state
 
+        # NOTE: add goals in the future.
         terminated = False
         truncated = False  # No maximum horizon, by default
         reward = 1 if terminated else 0  # Binary sparse rewards
@@ -167,7 +134,6 @@ class ShelfWorldEnv(gym.Env):
         return self._render_frame()
 
     def _render_frame(self) -> NDArray[np.uint8]:
-        # NOTE: this should be abstracted out in the future.
         figsize = (
             self._world_max_x - self._world_min_x,
             self._world_max_y - self._world_min_y,

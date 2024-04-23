@@ -1,4 +1,4 @@
-"""Tests for shelf_world.py."""
+"""Tests for three_table_env.py."""
 
 from typing import Dict, Tuple
 
@@ -7,7 +7,7 @@ from relational_structs.spaces import ObjectCentricStateSpace
 from relational_structs.structs import Object, State
 from relational_structs.utils import create_state_from_dict
 
-from geom2drobotenvs.envs.shelf_world import ShelfWorldEnv
+from geom2drobotenvs.envs.three_table_env import ThreeTableEnv
 from geom2drobotenvs.object_types import CRVRobotType, RectangleType
 from geom2drobotenvs.structs import ZOrder
 from geom2drobotenvs.utils import (
@@ -18,9 +18,9 @@ from geom2drobotenvs.utils import (
 )
 
 
-def test_shelf_world_env():
-    """Basic tests for ShelfWorldEnv()."""
-    env = ShelfWorldEnv()
+def test_three_table_env():
+    """Basic tests for ThreeTableEnv()."""
+    env = ThreeTableEnv()
     assert isinstance(env.observation_space, ObjectCentricStateSpace)
     assert env.observation_space.types == {CRVRobotType, RectangleType}
     assert env.action_space.shape == (5,)
@@ -28,12 +28,12 @@ def test_shelf_world_env():
     assert isinstance(obs, State)
 
 
-def _get_world_boundaries(env: ShelfWorldEnv) -> Tuple[float, float, float, float]:
+def _get_world_boundaries(env: ThreeTableEnv) -> Tuple[float, float, float, float]:
     # pylint: disable=protected-access
     return (env._world_min_x, env._world_min_y, env._world_max_x, env._world_max_y)
 
 
-def _create_common_state_dict(env: ShelfWorldEnv) -> Dict[Object, Dict[str, float]]:
+def _create_common_state_dict(env: ThreeTableEnv) -> Dict[Object, Dict[str, float]]:
     """Helper function to create a centered robot and walls."""
     world_min_x, world_min_y, world_max_x, world_max_y = _get_world_boundaries(env)
     # Set up an initial scene with just the robot.
@@ -65,9 +65,9 @@ def _create_common_state_dict(env: ShelfWorldEnv) -> Dict[Object, Dict[str, floa
     return init_state_dict
 
 
-def test_shelf_world_robot_moves():
-    """Test basic movements of the robot in ShelfWorldEnv()."""
-    env = ShelfWorldEnv()
+def test_three_table_robot_moves():
+    """Test basic movements of the robot in ThreeTableEnv()."""
+    env = ThreeTableEnv()
 
     # Uncomment to record videos.
     # from gym.wrappers.record_video import RecordVideo
@@ -122,9 +122,9 @@ def test_shelf_world_robot_moves():
     env.close()
 
 
-def test_shelf_world_robot_table_collisions():
+def test_three_table_robot_table_collisions():
     """Test that only the robot base collides with a table."""
-    env = ShelfWorldEnv()
+    env = ThreeTableEnv()
 
     # Uncomment to record videos.
     # from gym.wrappers.record_video import RecordVideo
@@ -185,9 +185,9 @@ def test_shelf_world_robot_table_collisions():
     env.close()
 
 
-def test_shelf_world_vacuum():
+def test_three_table_vacuum():
     """Tests for picking/placing up one or more objects with the vacuum."""
-    env = ShelfWorldEnv()
+    env = ThreeTableEnv()
 
     # Uncomment to record videos.
     # from gym.wrappers.record_video import RecordVideo
