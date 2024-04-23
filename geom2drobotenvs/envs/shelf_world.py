@@ -93,9 +93,9 @@ class ShelfWorldEnv(gym.Env):
                 "height": right_table_height,
                 "theta": 0.0,
                 "static": True,  # table can't move
-                "color_r": 0.4,  # gray
-                "color_g": 0.4,
-                "color_b": 0.4,
+                "color_r": 139 / 255,  # brown
+                "color_g": 39 / 255,
+                "color_b": 19 / 255,
                 "z_order": ZOrder.FLOOR.value,
             }
             assert isinstance(self.action_space, CRVRobotActionSpace)

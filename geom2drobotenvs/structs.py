@@ -11,9 +11,9 @@ from tomsgeoms2d.structs import Geom2D
 class ZOrder(Enum):
     """Used for collision checking."""
 
-    ALL = 1  # collides with everyone
-    FLOOR = 2  # collides with things on the floor
-    SURFACE = 3  # collides with things at the table surface level
+    FLOOR = 1  # collides with things on the floor
+    SURFACE = 2  # collides with things at the table surface level
+    ALL = 100  # collides with everyone
 
 
 def z_orders_may_collide(z0: ZOrder, z1: ZOrder) -> bool:
@@ -41,5 +41,5 @@ class Body2D:
 
     def plot(self, ax: plt.Axes) -> None:
         """Render the body in matplotlib."""
-        for geom, kwargs in zip(self.geoms, self.rendering_kwargs):
-            geom.plot(ax=ax, **kwargs)
+        for geom, z, kwargs in zip(self.geoms, self.z_orders, self.rendering_kwargs):
+            geom.plot(ax=ax, zorder=z.value, **kwargs)

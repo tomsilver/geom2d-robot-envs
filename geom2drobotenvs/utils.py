@@ -1,6 +1,6 @@
 """Utilities."""
 
-from typing import Dict
+from typing import Dict, Tuple
 
 import numpy as np
 from gym.spaces import Box
@@ -102,10 +102,14 @@ def _robot_to_body2d(obj: Object, state: State) -> Body2D:
     z_orders = [ZOrder.SURFACE, ZOrder.ALL, ZOrder.SURFACE]
     silver = (128 / 255, 128 / 255, 128 / 255)
     purple = (128 / 255, 0 / 255, 128 / 255)
+    # If the vacuum is on, light up the gripper.
+    vacuum_on = state.get(obj, "vacuum") > 0.5
+    light_purple = (240 / 255, 100 / 255, 240 / 255)
+    gripper_color = light_purple if vacuum_on else purple
     rendering_kwargs = [
         {"facecolor": silver, "edgecolor": "black"},
         {"facecolor": purple, "edgecolor": "black"},
-        {"facecolor": purple, "edgecolor": "black"},
+        {"facecolor": gripper_color, "edgecolor": "black"},
     ]
     return Body2D(geoms, z_orders, rendering_kwargs)
 
@@ -205,5 +209,27 @@ def state_has_collision(
                     if not z_orders_may_collide(robot_z, obstacle_z):
                         continue
                     if geom2ds_intersect(robot_geom, obstacle_geom):
+                        print("COLLISION:", obstacle)
                         return True
     return False
+
+
+def get_tool_tip_position(state: State, robot: Object) -> Tuple[float, float]:
+    """Get the tip of the tool for the robot, which is defined as the center of
+    the bottom edge of the gripper."""
+    body = _robot_to_body2d(robot, state)
+    gripper_geom = body.geoms[2]
+    assert isinstance(gripper_geom, Rectangle)
+    # Transform the x, y point.
+    tool_tip = np.array([1.0, 0.5])
+    scale_matrix = np.array(
+        [
+            [gripper_geom.width, 0],
+            [0, gripper_geom.height],
+        ]
+    )
+    translate_vector = np.array([gripper_geom.x, gripper_geom.y])
+    tool_tip = tool_tip @ scale_matrix.T
+    tool_tip = tool_tip @ gripper_geom.rotation_matrix.T
+    tool_tip = translate_vector + tool_tip
+    return (tool_tip[0], tool_tip[1])
