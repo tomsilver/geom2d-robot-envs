@@ -10,7 +10,7 @@ from relational_structs.structs import Array, Object, State
 from tomsgeoms2d.structs import Circle, Rectangle
 from tomsgeoms2d.utils import geom2ds_intersect
 from tomsutils.motion_planning import BiRRT
-from tomsutils.utils import fig2data, get_signed_angle_distance,wrap_angle
+from tomsutils.utils import fig2data, get_signed_angle_distance
 
 from geom2drobotenvs.object_types import CRVRobotType, Geom2DType, RectangleType
 from geom2drobotenvs.structs import (
@@ -107,8 +107,8 @@ def _robot_to_multibody2d(obj: Object, state: State) -> MultiBody2D:
     arm_joint = state.get(obj, "arm_joint")
     gripper_cx = base_x + np.cos(theta) * arm_joint
     gripper_cy = base_y + np.sin(theta) * arm_joint
-    gripper_height = 4 * base_radius / 3
-    gripper_width = 0.25 * base_radius
+    gripper_height = state.get(obj, "gripper_height")
+    gripper_width = state.get(obj, "gripper_width")
     geom = Rectangle.from_center(
         center_x=gripper_cx,
         center_y=gripper_cy,
@@ -424,11 +424,10 @@ def run_motion_planning_for_crv_robot(
         theta = pt1.theta
         yield SE2Pose(x, y, theta)
         for _ in range(num_steps):
-            x += (dx / num_steps)
-            y += (dy / num_steps)
-            theta += (dtheta / num_steps)
+            x += dx / num_steps
+            y += dy / num_steps
+            theta += dtheta / num_steps
             yield SE2Pose(x, y, theta)
-
 
     def collision_fn(pt: SE2Pose) -> bool:
         """Check for collisions if the robot were at this pose."""
@@ -437,12 +436,6 @@ def run_motion_planning_for_crv_robot(
         static_state.set(robot, "x", pt.x)
         static_state.set(robot, "y", pt.y)
         static_state.set(robot, "theta", pt.theta)
-
-        # TODO remove
-        # import cv2
-        # img = render_state(static_state)
-        # cv2.imshow("Debug", cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
-        # cv2.waitKey(0)
 
         return state_has_collision(static_state, static_object_body_cache)
 

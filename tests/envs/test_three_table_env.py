@@ -47,6 +47,8 @@ def _create_common_state_dict(env: ThreeTableEnv) -> Dict[Object, Dict[str, floa
             "arm_joint": 0.5,
             "arm_length": 3.0,
             "vacuum": 0.0,
+            "gripper_height": 0.7,
+            "gripper_width": 0.1,
         }
     }
     assert isinstance(env.action_space, CRVRobotActionSpace)

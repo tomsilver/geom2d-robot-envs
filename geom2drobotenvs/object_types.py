@@ -18,5 +18,16 @@ RectangleType = Type(
 # gripper. The arm_length is the max value of arm_joint. The vacuum_on is a bit
 # for whether the vacuum is on.
 CRVRobotType = Type(
-    "crv_robot", ["x", "y", "theta", "base_radius", "arm_joint", "arm_length", "vacuum"]
+    "crv_robot",
+    [
+        "x",
+        "y",
+        "theta",
+        "base_radius",
+        "arm_joint",
+        "arm_length",
+        "vacuum",
+        "gripper_height",
+        "gripper_width",
+    ],
 )

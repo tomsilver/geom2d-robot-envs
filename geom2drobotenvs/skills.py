@@ -16,6 +16,7 @@ from relational_structs.structs import (
 from geom2drobotenvs.object_types import CRVRobotType, RectangleType
 from geom2drobotenvs.structs import MultiBody2D, SE2Pose
 from geom2drobotenvs.utils import (
+    CRVRobotActionSpace,
     crv_pose_plan_to_action_plan,
     run_motion_planning_for_crv_robot,
     state_has_collision,
@@ -30,11 +31,26 @@ def create_rectangle_vaccum_pick_option(action_space: Space) -> ParameterizedOpt
 
     name = "RectangleVacuumPick"
     params_space = ObjectSequenceSpace([CRVRobotType, RectangleType])
+    assert isinstance(action_space, CRVRobotActionSpace)
 
     def _policy(state: State, params: Sequence[Object], memory: OptionMemory) -> Action:
-        del state, params  # not used
-        assert memory["action_plan"], "Motion plan did not reach its goal"
-        return memory["action_plan"].pop(0)
+        robot, _ = params
+        # Moving is finished.
+        if not memory["move_plan"]:
+            # Arm is extended, so turn on the vacuum.
+            arm_length = state.get(robot, "arm_length")
+            arm_joint = state.get(robot, "arm_joint")
+            arm_extended = abs(arm_length - arm_joint) < 1e-5
+            if arm_extended:
+                return np.array(
+                    [0.0, 0.0, 0.0, 0.0, action_space.high[4]], dtype=np.float32
+                )
+            # Extend the arm.
+            return np.array(
+                [0.0, 0.0, 0.0, action_space.high[3], 0.0], dtype=np.float32
+            )
+        # Move.
+        return memory["move_plan"].pop(0)
 
     def _initiable(
         state: State, params: Sequence[Object], memory: OptionMemory
@@ -42,6 +58,7 @@ def create_rectangle_vaccum_pick_option(action_space: Space) -> ParameterizedOpt
         robot, target = params
 
         arm_length = state.get(robot, "arm_length")
+        gripper_width = state.get(robot, "gripper_width")
         target_width = state.get(target, "width")
         target_height = state.get(target, "height")
         target_cx = state.get(target, "x") + target_width / 2
@@ -55,10 +72,12 @@ def create_rectangle_vaccum_pick_option(action_space: Space) -> ParameterizedOpt
 
             # Determine the target pose.
             if np.isclose(approach_theta % np.pi, 0.0):  # horizontal approach
-                pad = target_width
+                target_pad = target_width / 2
             else:
-                pad = target_height
-            approach_dist = arm_length + pad
+                target_pad = target_height / 2
+            gripper_pad = gripper_width / 2
+            vacuum_pad = 1e-5  # leave a small space to avoid collisions
+            approach_dist = arm_length + target_pad + gripper_pad + vacuum_pad
             approach_dx = -approach_dist * np.cos(approach_theta)
             approach_dy = -approach_dist * np.sin(approach_theta)
             approach_x = target_cx + approach_dx
@@ -89,13 +108,18 @@ def create_rectangle_vaccum_pick_option(action_space: Space) -> ParameterizedOpt
 
             # Found a valid plan; convert it to an action plan and finish.
             action_plan = crv_pose_plan_to_action_plan(pose_plan, action_space)
-            memory["action_plan"] = action_plan
+            memory["move_plan"] = action_plan
             return True
 
         # All approach angles failed.
         return False
 
     def _terminal(state: State, params: Sequence[Object], memory: OptionMemory) -> bool:
-        return not memory["action_plan"]
+        robot, _ = params
+        arm_length = state.get(robot, "arm_length")
+        arm_joint = state.get(robot, "arm_joint")
+        arm_extended = abs(arm_length - arm_joint) < 1e-5
+        vacuum_on = state.get(robot, "vacuum") > 0.5
+        return not memory["move_plan"] and arm_extended and vacuum_on
 
     return ParameterizedOption(name, params_space, _policy, _initiable, _terminal)

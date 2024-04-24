@@ -36,6 +36,8 @@ class ThreeTableEnv(Geom2DRobotEnv):
             "arm_joint": self._robot_base_radius,  # arm is fully retracted
             "arm_length": 5 * self._robot_base_radius,
             "vacuum": 0.0,  # vacuum is off
+            "gripper_height": 0.7,
+            "gripper_width": 0.1,
         }
 
         # Common features for tables.

@@ -4,19 +4,17 @@ import abc
 from typing import ClassVar, Dict, Optional, Tuple
 
 import gym
-import matplotlib.pyplot as plt
 import numpy as np
 from numpy.typing import NDArray
 from relational_structs.spaces import ObjectCentricStateSpace
 from relational_structs.structs import Array, Object, State
-from tomsutils.utils import fig2data, wrap_angle
+from tomsutils.utils import wrap_angle
 
 from geom2drobotenvs.object_types import CRVRobotType, RectangleType
 from geom2drobotenvs.structs import MultiBody2D, SE2Pose
 from geom2drobotenvs.utils import (
     CRVRobotActionSpace,
     get_suctioned_objects,
-    object_to_multibody2d,
     render_state,
     state_has_collision,
 )
