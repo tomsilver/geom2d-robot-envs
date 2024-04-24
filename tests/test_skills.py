@@ -6,13 +6,17 @@ from geom2drobotenvs.envs.three_table_env import ThreeTableEnv
 from geom2drobotenvs.object_types import CRVRobotType, RectangleType
 from geom2drobotenvs.skills import create_rectangle_vaccum_pick_option
 
+import numpy as np
+
 
 def test_create_rectangle_vaccum_pick_option():
     """Tests for create_rectangle_vaccum_pick_option()."""
     env = ThreeTableEnv()
+
     parameterized_opt = create_rectangle_vaccum_pick_option(env.action_space)
     obs, _ = env.reset()
     assert isinstance(obs, State)
+
     # Try to pick up the smallest block.
     robot = obs.get_objects(CRVRobotType)[0]
     blocks = [
@@ -20,7 +24,21 @@ def test_create_rectangle_vaccum_pick_option():
     ]
     block = min(blocks, key=lambda b: obs.get(b, "width") * obs.get(b, "height"))
     option = parameterized_opt.ground([robot, block])
-    assert option.initiable(obs)
-    import ipdb
+    
+    # Move the robot up to a more interesting initial location.
+    obs.set(robot, "y", obs.get(robot, "x") + 2.0)
+    obs.set(robot, "theta", 2 * np.pi / 3)
+    obs, _ = env.reset(options={"init_state": obs})
+    
+    # Uncomment to record videos.
+    from gym.wrappers.record_video import RecordVideo
+    env = RecordVideo(env, "unit_test_videos")
 
-    ipdb.set_trace()
+    assert option.initiable(obs)
+    for _ in range(25):  # gratuitous
+        act = option.policy(obs)
+        obs, _, _, _, _ = env.step(act)
+        if option.terminal(obs):
+            break
+
+    env.close()

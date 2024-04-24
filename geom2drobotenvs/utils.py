@@ -10,7 +10,7 @@ from relational_structs.structs import Array, Object, State
 from tomsgeoms2d.structs import Circle, Rectangle
 from tomsgeoms2d.utils import geom2ds_intersect
 from tomsutils.motion_planning import BiRRT
-from tomsutils.utils import fig2data, get_signed_angle_distance
+from tomsutils.utils import fig2data, get_signed_angle_distance,wrap_angle
 
 from geom2drobotenvs.object_types import CRVRobotType, Geom2DType, RectangleType
 from geom2drobotenvs.structs import (
@@ -419,11 +419,16 @@ def run_motion_planning_for_crv_robot(
         theta_num_steps = int(dtheta / abs_theta) + 1
         assert theta_num_steps > 0
         num_steps = max(x_num_steps, y_num_steps, theta_num_steps)
-        x_interp = np.linspace(pt1.x, pt2.x, num=num_steps, endpoint=True)
-        y_interp = np.linspace(pt1.y, pt2.y, num=num_steps, endpoint=True)
-        theta_interp = np.linspace(pt1.theta, pt2.theta, num=num_steps, endpoint=True)
-        for x, y, theta in zip(x_interp, y_interp, theta_interp):
+        x = pt1.x
+        y = pt1.y
+        theta = pt1.theta
+        yield SE2Pose(x, y, theta)
+        for _ in range(num_steps):
+            x += (dx / num_steps)
+            y += (dy / num_steps)
+            theta += (dtheta / num_steps)
             yield SE2Pose(x, y, theta)
+
 
     def collision_fn(pt: SE2Pose) -> bool:
         """Check for collisions if the robot were at this pose."""
@@ -474,7 +479,7 @@ def crv_pose_plan_to_action_plan(
         action = np.zeros_like(action_space.high)
         action[0] = pt2.x - pt1.x
         action[1] = pt2.y - pt1.y
-        action[2] = pt2.theta - pt1.theta
+        action[2] = get_signed_angle_distance(pt2.theta, pt1.theta)
         action[4] = 1.0 if vacuum_while_moving else 0.0
         action_plan.append(action)
     return action_plan

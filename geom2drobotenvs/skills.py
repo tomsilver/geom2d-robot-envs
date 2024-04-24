@@ -33,7 +33,8 @@ def create_rectangle_vaccum_pick_option(action_space: Space) -> ParameterizedOpt
 
     def _policy(state: State, params: Sequence[Object], memory: OptionMemory) -> Action:
         del state, params  # not used
-        import ipdb; ipdb.set_trace()
+        assert memory["action_plan"], "Motion plan did not reach its goal"
+        return memory["action_plan"].pop(0)
 
     def _initiable(
         state: State, params: Sequence[Object], memory: OptionMemory
@@ -88,13 +89,13 @@ def create_rectangle_vaccum_pick_option(action_space: Space) -> ParameterizedOpt
 
             # Found a valid plan; convert it to an action plan and finish.
             action_plan = crv_pose_plan_to_action_plan(pose_plan, action_space)
-            memory["plan"] = action_plan
+            memory["action_plan"] = action_plan
             return True
 
         # All approach angles failed.
         return False
 
     def _terminal(state: State, params: Sequence[Object], memory: OptionMemory) -> bool:
-        return not memory["plan"]
+        return not memory["action_plan"]
 
     return ParameterizedOption(name, params_space, _policy, _initiable, _terminal)
