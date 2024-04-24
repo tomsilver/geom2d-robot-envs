@@ -8,7 +8,10 @@ from relational_structs.structs import Object, State, Array
 from tomsgeoms2d.structs import Circle, Rectangle
 from tomsgeoms2d.utils import geom2ds_intersect
 from tomsutils.motion_planning import BiRRT
-from tomsutils.utils import get_signed_angle_distance
+from tomsutils.utils import get_signed_angle_distance, fig2data
+
+import matplotlib.pyplot as plt
+from numpy.typing import NDArray
 
 from geom2drobotenvs.object_types import CRVRobotType, Geom2DType, RectangleType
 from geom2drobotenvs.structs import (
@@ -230,6 +233,38 @@ def create_walls_from_world_boundaries(
         "z_order": ZOrder.ALL.value,
     }
     return state_dict
+
+
+def render_state(state: State, static_object_body_cache: Optional[Dict[Object, MultiBody2D]] = None,
+                 world_min_x: float= 0.0, world_max_x: float = 10.0,
+                 world_min_y: float=0.0, world_max_y: float = 10.0,
+                 render_dpi: int = 150) -> NDArray[np.uint8]:
+    """Render a state. Useful for viz and debugging."""
+    figsize = (
+        world_max_x - world_min_x,
+        world_max_y - world_min_y,
+    )
+    fig, ax = plt.subplots(1, 1, figsize=figsize, dpi=render_dpi)
+
+    # Sort objects by ascending z order, with the robot first.
+    def _render_order(obj: Object) -> int:
+        if obj.is_instance(CRVRobotType):
+            return -1
+        return int(state.get(obj, "z_order"))
+
+    for obj in sorted(state, key=_render_order):
+        body = object_to_multibody2d(obj, state, static_object_body_cache)
+        body.plot(ax)
+
+    pad_x = (world_max_x - world_min_x) / 25
+    pad_y = (world_max_y - world_min_y) / 25
+    ax.set_xlim(world_min_x - pad_x, world_max_x + pad_x)
+    ax.set_ylim(world_min_y - pad_y, world_max_y + pad_y)
+    ax.axis("off")
+    plt.tight_layout()
+    img = fig2data(fig)
+    plt.clf()
+    return img
 
 
 def state_has_collision(

@@ -22,20 +22,21 @@ def create_rectangle_vaccum_pick_option(action_space: Space) -> ParameterizedOpt
     def _initiable(state: State, params: Sequence[Object], memory: OptionMemory) -> bool:
         robot, target = params
 
-        # Determine the distance that the robot needs to be from the target in
-        # order for the arm to reach it.
-        arm_length = state.get(robot, "arm_length")
-        import ipdb; ipdb.set_trace()
-
         # Try approaching the rectangle from each of four sides, while at the
         # farthest possible distance.
-        # for approach_direction in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+        for approach_theta in [0, np.pi / 2, np.pi, -np.pi / 2]:
+            # Determine the target pose.
+            arm_length = state.get(robot, "arm_length")
+            import ipdb; ipdb.set_trace()
 
-        # plan = run_motion_planning_for_crv_robot(state, robot
-        # if plan is None:
-        #     return False
-        # memory["plan"] = plan
-        # return True
+            # TODO: validate the motion plan by extending the arm and seeing if we
+            # would be in collision when the arm is extended.
+
+            # plan = run_motion_planning_for_crv_robot(state, robot
+            # if plan is None:
+            #     return False
+            # memory["plan"] = plan
+            # return True
 
     def _terminal(state: State, params: Sequence[Object], memory: OptionMemory) -> bool:
         return not memory["plan"]

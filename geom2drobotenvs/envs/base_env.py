@@ -18,6 +18,7 @@ from geom2drobotenvs.utils import (
     get_suctioned_objects,
     object_to_multibody2d,
     state_has_collision,
+    render_state,
 )
 
 
@@ -128,34 +129,13 @@ class Geom2DRobotEnv(gym.Env):
 
     def render(self) -> NDArray[np.uint8]:
         assert self.render_mode == "rgb_array"
-        return self._render_frame()
-
-    def _render_frame(self) -> NDArray[np.uint8]:
-        figsize = (
-            self._world_max_x - self._world_min_x,
-            self._world_max_y - self._world_min_y,
-        )
-        fig, ax = plt.subplots(1, 1, figsize=figsize, dpi=self._render_dpi)
-
         assert self._current_state is not None, "Need to call reset()"
-        state = self._current_state
-
-        # Sort objects by ascending z order, with the robot first.
-        def _render_order(obj: Object) -> int:
-            if obj.is_instance(CRVRobotType):
-                return -1
-            return int(state.get(obj, "z_order"))
-
-        for obj in sorted(state, key=_render_order):
-            body = object_to_multibody2d(obj, state, self._static_object_body_cache)
-            body.plot(ax)
-
-        pad_x = (self._world_max_x - self._world_min_x) / 25
-        pad_y = (self._world_max_y - self._world_min_y) / 25
-        ax.set_xlim(self._world_min_x - pad_x, self._world_max_x + pad_x)
-        ax.set_ylim(self._world_min_y - pad_y, self._world_max_y + pad_y)
-        ax.axis("off")
-        plt.tight_layout()
-        img = fig2data(fig)
-        plt.clf()
-        return img
+        return render_state(
+            self._current_state,
+            self._static_object_body_cache,
+            self._world_min_x,
+            self._world_max_x,
+            self._world_min_y,
+            self._world_max_y,
+            self._render_dpi
+        )
