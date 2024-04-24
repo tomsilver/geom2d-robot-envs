@@ -63,6 +63,8 @@ def create_rectangle_vaccum_pick_option(action_space: Space) -> ParameterizedOpt
         target_height = state.get(target, "height")
         target_cx = state.get(target, "x") + target_width / 2
         target_cy = state.get(target, "y") + target_height / 2
+        target_theta = state.get(target, "theta")
+        world_to_target = SE2Pose(target_cx, target_cy, target_theta)
 
         static_object_body_cache: Dict[Object, MultiBody2D] = {}
 
@@ -70,7 +72,7 @@ def create_rectangle_vaccum_pick_option(action_space: Space) -> ParameterizedOpt
         # farthest possible distance.
         for approach_theta in [-np.pi / 2, 0, np.pi / 2, np.pi]:
 
-            # Determine the target pose.
+            # Determine the approach pose relative to target.
             if np.isclose(approach_theta % np.pi, 0.0):  # horizontal approach
                 target_pad = target_width / 2
             else:
@@ -78,11 +80,11 @@ def create_rectangle_vaccum_pick_option(action_space: Space) -> ParameterizedOpt
             gripper_pad = gripper_width / 2
             vacuum_pad = 1e-5  # leave a small space to avoid collisions
             approach_dist = arm_length + target_pad + gripper_pad + vacuum_pad
-            approach_dx = -approach_dist * np.cos(approach_theta)
-            approach_dy = -approach_dist * np.sin(approach_theta)
-            approach_x = target_cx + approach_dx
-            approach_y = target_cy + approach_dy
-            target_pose = SE2Pose(approach_x, approach_y, approach_theta)
+            approach_x = -approach_dist * np.cos(approach_theta)
+            approach_y = -approach_dist * np.sin(approach_theta)
+            target_to_robot = SE2Pose(approach_x, approach_y, approach_theta)
+            # Convert to absolute pose.
+            target_pose = world_to_target * target_to_robot
 
             # Run motion planning.
             pose_plan = run_motion_planning_for_crv_robot(
