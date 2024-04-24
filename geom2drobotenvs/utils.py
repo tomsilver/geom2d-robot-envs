@@ -1,17 +1,16 @@
 """Utilities."""
 
-from typing import Dict, List, Tuple, Optional, Iterable
+from typing import Dict, Iterable, List, Optional, Tuple
 
+import matplotlib.pyplot as plt
 import numpy as np
 from gym.spaces import Box
-from relational_structs.structs import Object, State, Array
+from numpy.typing import NDArray
+from relational_structs.structs import Array, Object, State
 from tomsgeoms2d.structs import Circle, Rectangle
 from tomsgeoms2d.utils import geom2ds_intersect
 from tomsutils.motion_planning import BiRRT
-from tomsutils.utils import get_signed_angle_distance, fig2data
-
-import matplotlib.pyplot as plt
-from numpy.typing import NDArray
+from tomsutils.utils import fig2data, get_signed_angle_distance
 
 from geom2drobotenvs.object_types import CRVRobotType, Geom2DType, RectangleType
 from geom2drobotenvs.structs import (
@@ -235,11 +234,22 @@ def create_walls_from_world_boundaries(
     return state_dict
 
 
-def render_state(state: State, static_object_body_cache: Optional[Dict[Object, MultiBody2D]] = None,
-                 world_min_x: float= 0.0, world_max_x: float = 10.0,
-                 world_min_y: float=0.0, world_max_y: float = 10.0,
-                 render_dpi: int = 150) -> NDArray[np.uint8]:
-    """Render a state. Useful for viz and debugging."""
+def render_state(
+    state: State,
+    static_object_body_cache: Optional[Dict[Object, MultiBody2D]] = None,
+    world_min_x: float = 0.0,
+    world_max_x: float = 10.0,
+    world_min_y: float = 0.0,
+    world_max_y: float = 10.0,
+    render_dpi: int = 150,
+) -> NDArray[np.uint8]:
+    """Render a state.
+
+    Useful for viz and debugging.
+    """
+    if static_object_body_cache is None:
+        static_object_body_cache = {}
+
     figsize = (
         world_max_x - world_min_x,
         world_max_y - world_min_y,
@@ -350,14 +360,23 @@ def get_suctioned_objects(state: State, robot: Object) -> List[Tuple[Object, SE2
     return suctioned_objects
 
 
-def run_motion_planning_for_crv_robot(state: State, robot: Object, target_pose: SE2Pose, action_space: CRVRobotActionSpace,
-                                      vacuum_while_moving: bool = False,
-                                      seed: int = 0, num_attempts: int = 10, num_iters: int = 100, smooth_amt: int = 50
-                                      ) -> Optional[List[Array]]:
+def run_motion_planning_for_crv_robot(
+    state: State,
+    robot: Object,
+    target_pose: SE2Pose,
+    action_space: CRVRobotActionSpace,
+    static_object_body_cache: Optional[Dict[Object, MultiBody2D]] = None,
+    seed: int = 0,
+    num_attempts: int = 10,
+    num_iters: int = 100,
+    smooth_amt: int = 50,
+) -> Optional[List[SE2Pose]]:
     """Run motion planning in an environment with a CRV action space."""
+    if static_object_body_cache is None:
+        static_object_body_cache = {}
 
     rng = np.random.default_rng(seed)
-    
+
     # Use the object positions in the state to create a rough room boundary.
     x_lb, x_ub, y_lb, y_ub = np.inf, -np.inf, np.inf, -np.inf
     for obj in state:
@@ -374,7 +393,6 @@ def run_motion_planning_for_crv_robot(state: State, robot: Object, target_pose: 
         if o.is_instance(CRVRobotType):
             continue
         static_state.set(o, "static", 1.0)
-    static_object_body_cache: Dict[Object, MultiBody2D] = {}
 
     # Set up the RRT methods.
     def sample_fn(_: SE2Pose) -> SE2Pose:
@@ -383,7 +401,7 @@ def run_motion_planning_for_crv_robot(state: State, robot: Object, target_pose: 
         y = rng.uniform(y_lb, y_ub)
         theta = rng.uniform(-np.pi, np.pi)
         return SE2Pose(x, y, theta)
-    
+
     def extend_fn(pt1: SE2Pose, pt2: SE2Pose) -> Iterable[SE2Pose]:
         """Interpolate between the two poses."""
         # Make sure that we obey the bounds on actions.
@@ -394,12 +412,12 @@ def run_motion_planning_for_crv_robot(state: State, robot: Object, target_pose: 
         abs_x = action_space.high[0] if dx > 0 else action_space.low[0]
         abs_y = action_space.high[1] if dy > 0 else action_space.low[1]
         abs_theta = action_space.high[2] if dtheta > 0 else action_space.low[2]
-        x_num_steps = dx / abs_x
-        assert x_num_steps >= 0
-        y_num_steps = dy / abs_y
-        assert y_num_steps >= 0
-        theta_num_steps = dtheta / abs_theta
-        assert theta_num_steps >= 0
+        x_num_steps = int(dx / abs_x) + 1
+        assert x_num_steps > 0
+        y_num_steps = int(dy / abs_y) + 1
+        assert y_num_steps > 0
+        theta_num_steps = int(dtheta / abs_theta) + 1
+        assert theta_num_steps > 0
         num_steps = max(x_num_steps, y_num_steps, theta_num_steps)
         x_interp = np.linspace(pt1.x, pt2.x, num=num_steps, endpoint=True)
         y_interp = np.linspace(pt1.y, pt2.y, num=num_steps, endpoint=True)
@@ -409,12 +427,20 @@ def run_motion_planning_for_crv_robot(state: State, robot: Object, target_pose: 
 
     def collision_fn(pt: SE2Pose) -> bool:
         """Check for collisions if the robot were at this pose."""
+
         # Update the static state with the robot's new hypothetical pose.
         static_state.set(robot, "x", pt.x)
         static_state.set(robot, "y", pt.y)
         static_state.set(robot, "theta", pt.theta)
+
+        # TODO remove
+        # import cv2
+        # img = render_state(static_state)
+        # cv2.imshow("Debug", cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+        # cv2.waitKey(0)
+
         return state_has_collision(static_state, static_object_body_cache)
-    
+
     def distance_fn(pt1: SE2Pose, pt2: SE2Pose) -> float:
         """Return a distance between the two points."""
         dx = pt2.x - pt1.x
@@ -422,14 +448,27 @@ def run_motion_planning_for_crv_robot(state: State, robot: Object, target_pose: 
         dtheta = get_signed_angle_distance(pt2.theta, pt1.theta)
         return np.sqrt(dx**2 + dy**2) + abs(dtheta)
 
-    birrt = BiRRT(sample_fn, extend_fn, collision_fn, distance_fn, rng, num_attempts,
-                num_iters, smooth_amt)
-    
+    birrt = BiRRT(
+        sample_fn,
+        extend_fn,
+        collision_fn,
+        distance_fn,
+        rng,
+        num_attempts,
+        num_iters,
+        smooth_amt,
+    )
+
     initial_pose = get_se2_pose(state, robot)
-    pose_plan = birrt.query(initial_pose, target_pose)
-    if pose_plan is None:
-        return None
-    
+    return birrt.query(initial_pose, target_pose)
+
+
+def crv_pose_plan_to_action_plan(
+    pose_plan: List[SE2Pose],
+    action_space: CRVRobotActionSpace,
+    vacuum_while_moving: bool = False,
+) -> List[Array]:
+    """Convert a CRV robot pose plan into corresponding actions."""
     action_plan: List[Array] = []
     for pt1, pt2 in zip(pose_plan[:-1], pose_plan[1:]):
         action = np.zeros_like(action_space.high)
@@ -438,5 +477,4 @@ def run_motion_planning_for_crv_robot(state: State, robot: Object, target_pose: 
         action[2] = pt2.theta - pt1.theta
         action[4] = 1.0 if vacuum_while_moving else 0.0
         action_plan.append(action)
-
     return action_plan

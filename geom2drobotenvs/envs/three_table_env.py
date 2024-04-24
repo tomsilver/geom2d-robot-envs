@@ -34,7 +34,7 @@ class ThreeTableEnv(Geom2DRobotEnv):
             "theta": 0.0,
             "base_radius": self._robot_base_radius,
             "arm_joint": self._robot_base_radius,  # arm is fully retracted
-            "arm_length": 10 * self._robot_base_radius,
+            "arm_length": 5 * self._robot_base_radius,
             "vacuum": 0.0,  # vacuum is off
         }
 

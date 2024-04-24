@@ -17,8 +17,8 @@ from geom2drobotenvs.utils import (
     CRVRobotActionSpace,
     get_suctioned_objects,
     object_to_multibody2d,
-    state_has_collision,
     render_state,
+    state_has_collision,
 )
 
 
@@ -137,5 +137,5 @@ class Geom2DRobotEnv(gym.Env):
             self._world_max_x,
             self._world_min_y,
             self._world_max_y,
-            self._render_dpi
+            self._render_dpi,
         )
