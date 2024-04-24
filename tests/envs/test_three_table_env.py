@@ -45,6 +45,7 @@ def _create_common_state_dict(env: ThreeTableEnv) -> Dict[Object, Dict[str, floa
             "theta": 0.0,
             "base_radius": 0.5,
             "arm_joint": 0.5,
+            "arm_length": 3.0,
             "vacuum": 0.0,
         }
     }

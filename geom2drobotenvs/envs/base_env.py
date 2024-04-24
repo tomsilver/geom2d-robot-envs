@@ -40,9 +40,6 @@ class Geom2DRobotEnv(gym.Env):
     _world_min_y: ClassVar[float] = 0.0
     _world_max_y: ClassVar[float] = 10.0
 
-    # Arm length for the robot.
-    _max_robot_arm_joint: ClassVar[float] = 3.0
-
     def __init__(self) -> None:
         self._types = {RectangleType, CRVRobotType}
         self.observation_space = ObjectCentricStateSpace(self._types)
@@ -101,7 +98,7 @@ class Geom2DRobotEnv(gym.Env):
         new_y = state.get(robot, "y") + dy
         new_theta = wrap_angle(state.get(robot, "theta") + dtheta)
         min_arm = state.get(robot, "base_radius")
-        max_arm = self._max_robot_arm_joint
+        max_arm = state.get(robot, "arm_length")
         new_arm = np.clip(state.get(robot, "arm_joint") + darm, min_arm, max_arm)
         state.set(robot, "x", new_x)
         state.set(robot, "y", new_y)

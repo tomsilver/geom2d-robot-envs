@@ -1,12 +1,14 @@
 """Utilities."""
 
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional, Iterable
 
 import numpy as np
 from gym.spaces import Box
-from relational_structs.structs import Object, State
+from relational_structs.structs import Object, State, Array
 from tomsgeoms2d.structs import Circle, Rectangle
 from tomsgeoms2d.utils import geom2ds_intersect
+from tomsutils.motion_planning import BiRRT
+from tomsutils.utils import get_signed_angle_distance
 
 from geom2drobotenvs.object_types import CRVRobotType, Geom2DType, RectangleType
 from geom2drobotenvs.structs import (
@@ -311,3 +313,95 @@ def get_suctioned_objects(state: State, robot: Object) -> List[Tuple[Object, SE2
                 robot_to_obj = get_relative_se2_transform(state, robot, obj)
                 suctioned_objects.append((obj, robot_to_obj))
     return suctioned_objects
+
+
+def run_motion_planning_for_crv_robot(state: State, robot: Object, target_pose: SE2Pose, action_space: CRVRobotActionSpace,
+                                      vacuum_while_moving: bool = False,
+                                      seed: int = 0, num_attempts: int = 10, num_iters: int = 100, smooth_amt: int = 50
+                                      ) -> Optional[List[Array]]:
+    """Run motion planning in an environment with a CRV action space."""
+
+    rng = np.random.default_rng(seed)
+    
+    # Use the object positions in the state to create a rough room boundary.
+    x_lb, x_ub, y_lb, y_ub = np.inf, -np.inf, np.inf, -np.inf
+    for obj in state:
+        pose = get_se2_pose(state, obj)
+        x_lb = min(x_lb, pose.x)
+        x_ub = max(x_ub, pose.x)
+        y_lb = min(y_lb, pose.y)
+        y_ub = max(y_ub, pose.y)
+
+    # Create a static version of the state so that the geoms only need to be
+    # instantiated once during motion planning (except for the robot).
+    static_state = state.copy()
+    for o in static_state:
+        if o.is_instance(CRVRobotType):
+            continue
+        static_state.set(o, "static", 1.0)
+    static_object_body_cache: Dict[Object, MultiBody2D] = {}
+
+    # Set up the RRT methods.
+    def sample_fn(_: SE2Pose) -> SE2Pose:
+        """Sample a robot pose."""
+        x = rng.uniform(x_lb, x_ub)
+        y = rng.uniform(y_lb, y_ub)
+        theta = rng.uniform(-np.pi, np.pi)
+        return SE2Pose(x, y, theta)
+    
+    def extend_fn(pt1: SE2Pose, pt2: SE2Pose) -> Iterable[SE2Pose]:
+        """Interpolate between the two poses."""
+        # Make sure that we obey the bounds on actions.
+        dx = pt2.x - pt1.x
+        dy = pt2.y - pt1.y
+        dtheta = get_signed_angle_distance(pt2.theta, pt1.theta)
+        assert isinstance(action_space, CRVRobotActionSpace)
+        abs_x = action_space.high[0] if dx > 0 else action_space.low[0]
+        abs_y = action_space.high[1] if dy > 0 else action_space.low[1]
+        abs_theta = action_space.high[2] if dtheta > 0 else action_space.low[2]
+        x_num_steps = dx / abs_x
+        assert x_num_steps >= 0
+        y_num_steps = dy / abs_y
+        assert y_num_steps >= 0
+        theta_num_steps = dtheta / abs_theta
+        assert theta_num_steps >= 0
+        num_steps = max(x_num_steps, y_num_steps, theta_num_steps)
+        x_interp = np.linspace(pt1.x, pt2.x, num=num_steps, endpoint=True)
+        y_interp = np.linspace(pt1.y, pt2.y, num=num_steps, endpoint=True)
+        theta_interp = np.linspace(pt1.theta, pt2.theta, num=num_steps, endpoint=True)
+        for x, y, theta in zip(x_interp, y_interp, theta_interp):
+            yield SE2Pose(x, y, theta)
+
+    def collision_fn(pt: SE2Pose) -> bool:
+        """Check for collisions if the robot were at this pose."""
+        # Update the static state with the robot's new hypothetical pose.
+        static_state.set(robot, "x", pt.x)
+        static_state.set(robot, "y", pt.y)
+        static_state.set(robot, "theta", pt.theta)
+        return state_has_collision(static_state, static_object_body_cache)
+    
+    def distance_fn(pt1: SE2Pose, pt2: SE2Pose) -> float:
+        """Return a distance between the two points."""
+        dx = pt2.x - pt1.x
+        dy = pt2.y - pt1.y
+        dtheta = get_signed_angle_distance(pt2.theta, pt1.theta)
+        return np.sqrt(dx**2 + dy**2) + abs(dtheta)
+
+    birrt = BiRRT(sample_fn, extend_fn, collision_fn, distance_fn, rng, num_attempts,
+                num_iters, smooth_amt)
+    
+    initial_pose = get_se2_pose(state, robot)
+    pose_plan = birrt.query(initial_pose, target_pose)
+    if pose_plan is None:
+        return None
+    
+    action_plan: List[Array] = []
+    for pt1, pt2 in zip(pose_plan[:-1], pose_plan[1:]):
+        action = np.zeros_like(action_space.high)
+        action[0] = pt2.x - pt1.x
+        action[1] = pt2.y - pt1.y
+        action[2] = pt2.theta - pt1.theta
+        action[4] = 1.0 if vacuum_while_moving else 0.0
+        action_plan.append(action)
+
+    return action_plan
