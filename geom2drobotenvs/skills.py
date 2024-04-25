@@ -21,6 +21,7 @@ from geom2drobotenvs.utils import (
     get_suctioned_objects,
     run_motion_planning_for_crv_robot,
     state_has_collision,
+    snap_suctioned_objects,
 )
 
 
@@ -176,55 +177,51 @@ def create_rectangle_vaccum_table_place_option(action_space: Space) -> Parameter
         robot, held_obj, table = params
 
         static_object_body_cache: Dict[Object, MultiBody2D] = {}
+        suctioned_objs = get_suctioned_objects(state, robot)
 
         # Try to approach the table from each of the four sides. After each
         # motion plan, try to extend the arm as far as possible until a
         # collision is about to occur. If the held object is on the table,
         # return that plan. Otherwise, try the next of the four approaches.
-        for approach_theta, table_size in [
-            (-np.pi / 2, table_height),
-            (0, table_width),
-            (np.pi / 2, table_height),
-            (np.pi, table_width)
-        ]:
+        robot_base_radius = state.get(robot, "base_radius")
+        held_obj_max_size = max(state.get(held_obj, "width"), state.get(held_obj, "height"))
+        pad = 0.25 * robot_base_radius
+        robot_to_target_side_dist = robot_base_radius + held_obj_max_size + pad
+        for pose_plan in _iter_motion_plans_to_rectangle(
+            state, robot, table, action_space,
+            robot_to_target_side_dist,
+            static_object_body_cache
+        ):
             
+            # Simulate extending the arm from the last pose in the plan.
+            sim_state = state.copy()
+            sim_state.set(robot, "x", pose_plan[-1].x)
+            sim_state.set(robot, "y", pose_plan[-1].y)
+            sim_state.set(robot, "theta", pose_plan[-1].theta)
+            snap_suctioned_objects(sim_state, robot, suctioned_objs)
 
-            target_pad = table_size / 2
-            gripper_pad = gripper_width / 2
-            vacuum_pad = 1e-6  # leave a small space to avoid collisions
-            approach_dist = arm_length + target_pad + gripper_pad + vacuum_pad
-            approach_x = -approach_dist * np.cos(approach_theta)
-            approach_y = -approach_dist * np.sin(approach_theta)
-            target_to_robot = SE2Pose(approach_x, approach_y, approach_theta)
-            # Convert to absolute pose.
-            target_pose = world_to_target * target_to_robot
-
-            # Run motion planning.
-            pose_plan = run_motion_planning_for_crv_robot(
-                state,
-                robot,
-                target_pose,
-                action_space,
-                static_object_body_cache=static_object_body_cache,
-            )
-            if pose_plan is None:
-                continue
-
-            # Validate the motion plan by extending the arm and seeing if we
-            # would be in collision when the arm is extended.
-            target_state = state.copy()
-            final_pose = pose_plan[-1]
-            target_state.set(robot, "x", final_pose.x)
-            target_state.set(robot, "y", final_pose.y)
-            target_state.set(robot, "theta", final_pose.theta)
-            target_state.set(robot, "arm_joint", arm_length)
-            if state_has_collision(target_state, static_object_body_cache):
-                continue
-
-            # Found a valid plan; convert it to an action plan and finish.
-            action_plan = crv_pose_plan_to_action_plan(pose_plan, action_space)
-            memory["move_plan"] = action_plan
-            return True
+            num_arm_extensions = 0
+            arm_length = sim_state.get(robot, "arm_length")
+            arm_joint = sim_state.get(robot, "arm_joint")
+            arm_dx = action_space.high[3]
+            while abs(arm_length - arm_joint) > 1e-6:
+                arm_joint += arm_dx
+                sim_state.set(robot, "arm_joint", arm_joint)
+                snap_suctioned_objects(sim_state, robot, suctioned_objs)
+                if state_has_collision(sim_state, static_object_body_cache):
+                    # Roll back the change.
+                    arm_joint -= arm_dx
+                    sim_state.set(robot, "arm_joint", arm_joint)
+                    snap_suctioned_objects(sim_state, robot, suctioned_objs)
+                    break
+                num_arm_extensions += 1
+            
+            # TODO remove
+            import cv2
+            from geom2drobotenvs.utils import render_state
+            img = render_state(sim_state)
+            cv2.imshow("debug", cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+            cv2.waitKey(0)
 
         # All approach angles failed.
         return False

@@ -10,7 +10,7 @@ from relational_structs.structs import Array, Object, State
 from tomsgeoms2d.structs import Circle, Rectangle
 from tomsgeoms2d.utils import geom2ds_intersect
 from tomsutils.motion_planning import BiRRT
-from tomsutils.utils import fig2data, get_signed_angle_distance
+from tomsutils.utils import fig2data, get_signed_angle_distance, wrap_angle
 
 from geom2drobotenvs.object_types import CRVRobotType, Geom2DType, RectangleType
 from geom2drobotenvs.structs import (
@@ -364,6 +364,18 @@ def get_suctioned_objects(state: State, robot: Object) -> List[Tuple[Object, SE2
     return suctioned_objects
 
 
+def snap_suctioned_objects(state: State, robot: Object, suctioned_objs: List[Tuple[Object, SE2Pose]]) -> None:
+    """Updates the state in-place."""
+    gripper_x, gripper_y = get_tool_tip_position(state, robot)
+    gripper_theta = state.get(robot, "theta")
+    world_to_gripper = SE2Pose(gripper_x, gripper_y, gripper_theta)
+    for obj, gripper_to_obj in suctioned_objs:
+        world_to_obj = world_to_gripper * gripper_to_obj
+        state.set(obj, "x", world_to_obj.x)
+        state.set(obj, "y", world_to_obj.y)
+        state.set(obj, "theta", world_to_obj.theta)
+
+
 def run_motion_planning_for_crv_robot(
     state: State,
     robot: Object,
@@ -430,7 +442,7 @@ def run_motion_planning_for_crv_robot(
         for _ in range(num_steps):
             x += dx / num_steps
             y += dy / num_steps
-            theta += dtheta / num_steps
+            theta = wrap_angle(theta + dtheta / num_steps)
             yield SE2Pose(x, y, theta)
 
     def collision_fn(pt: SE2Pose) -> bool:
@@ -480,3 +492,4 @@ def crv_pose_plan_to_action_plan(
         action[4] = 1.0 if vacuum_while_moving else 0.0
         action_plan.append(action)
     return action_plan
+
