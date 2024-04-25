@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from gym.spaces import Box
 from numpy.typing import NDArray
-from relational_structs.structs import Array, Object, State
+from relational_structs import Array, Object, State
 from tomsgeoms2d.structs import Circle, Rectangle
 from tomsgeoms2d.utils import geom2ds_intersect
 from tomsutils.motion_planning import BiRRT

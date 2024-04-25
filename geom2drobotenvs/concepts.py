@@ -2,7 +2,7 @@
 
 from typing import Dict
 
-from relational_structs.structs import Object, State
+from relational_structs import Object, State
 from tomsgeoms2d.structs import Rectangle
 
 from geom2drobotenvs.structs import MultiBody2D

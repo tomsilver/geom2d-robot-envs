@@ -6,8 +6,7 @@ from typing import ClassVar, Dict, Optional, Tuple
 import gym
 import numpy as np
 from numpy.typing import NDArray
-from relational_structs.spaces import ObjectCentricStateSpace
-from relational_structs.structs import Array, Object, State
+from relational_structs import Array, Object, ObjectCentricStateSpace, State
 from tomsutils.utils import wrap_angle
 
 from geom2drobotenvs.object_types import CRVRobotType, RectangleType

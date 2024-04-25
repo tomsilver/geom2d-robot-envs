@@ -1,6 +1,6 @@
 """Object types that are common across different environments."""
 
-from relational_structs.structs import Type
+from relational_structs import Type
 
 # All geoms have an origin (x, y) and a rotation (in radians), and a bit
 # indicating whether the geom is static (versus movable). They also have RGB.

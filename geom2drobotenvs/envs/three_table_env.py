@@ -3,7 +3,7 @@
 from typing import ClassVar, Dict
 
 import numpy as np
-from relational_structs.structs import Object, State
+from relational_structs import Object, State
 from relational_structs.utils import create_state_from_dict
 
 from geom2drobotenvs.envs.base_env import Geom2DRobotEnv

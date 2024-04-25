@@ -4,10 +4,10 @@ from typing import Dict, Iterator, List, Sequence
 
 import numpy as np
 from gym.spaces import Space
-from relational_structs.spaces import ObjectSequenceSpace
-from relational_structs.structs import (
+from relational_structs import (
     Action,
     Object,
+    ObjectSequenceSpace,
     OptionMemory,
     ParameterizedOption,
     State,

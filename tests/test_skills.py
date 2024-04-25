@@ -1,6 +1,6 @@
 """Tests for skills.py."""
 
-from relational_structs.structs import State
+from relational_structs import State
 
 from geom2drobotenvs.concepts import is_inside
 from geom2drobotenvs.envs.three_table_env import ThreeTableEnv
