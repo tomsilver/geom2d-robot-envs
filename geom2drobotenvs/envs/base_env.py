@@ -11,13 +11,13 @@ from relational_structs.structs import Array, Object, State
 from tomsutils.utils import wrap_angle
 
 from geom2drobotenvs.object_types import CRVRobotType, RectangleType
-from geom2drobotenvs.structs import MultiBody2D, SE2Pose
+from geom2drobotenvs.structs import MultiBody2D
 from geom2drobotenvs.utils import (
     CRVRobotActionSpace,
     get_suctioned_objects,
     render_state,
-    state_has_collision,
     snap_suctioned_objects,
+    state_has_collision,
 )
 
 

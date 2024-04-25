@@ -367,7 +367,9 @@ def get_suctioned_objects(state: State, robot: Object) -> List[Tuple[Object, SE2
     return suctioned_objects
 
 
-def snap_suctioned_objects(state: State, robot: Object, suctioned_objs: List[Tuple[Object, SE2Pose]]) -> None:
+def snap_suctioned_objects(
+    state: State, robot: Object, suctioned_objs: List[Tuple[Object, SE2Pose]]
+) -> None:
     """Updates the state in-place."""
     gripper_x, gripper_y = get_tool_tip_position(state, robot)
     gripper_theta = state.get(robot, "theta")
@@ -495,4 +497,3 @@ def crv_pose_plan_to_action_plan(
         action[4] = 1.0 if vacuum_while_moving else 0.0
         action_plan.append(action)
     return action_plan
-

@@ -1,6 +1,6 @@
 """Skills that might be useful in certain environments."""
 
-from typing import Dict, Sequence, Iterator, List
+from typing import Dict, Iterator, List, Sequence
 
 import numpy as np
 from gym.spaces import Space
@@ -13,6 +13,7 @@ from relational_structs.structs import (
     State,
 )
 
+from geom2drobotenvs.concepts import is_inside
 from geom2drobotenvs.object_types import CRVRobotType, RectangleType
 from geom2drobotenvs.structs import MultiBody2D, SE2Pose
 from geom2drobotenvs.utils import (
@@ -20,20 +21,22 @@ from geom2drobotenvs.utils import (
     crv_pose_plan_to_action_plan,
     get_suctioned_objects,
     run_motion_planning_for_crv_robot,
-    state_has_collision,
     snap_suctioned_objects,
+    state_has_collision,
 )
-from geom2drobotenvs.concepts import is_inside
 
 
-def _iter_motion_plans_to_rectangle(state: State, robot: Object, target: Object,
-                                    action_space: Space,
-                                    robot_to_target_side_dist: float,
-                                    static_object_body_cache: Dict[Object, MultiBody2D]) -> Iterator[List[SE2Pose]]:
-    """Helper for picking and placing that generates motion plans to approach
-    a rectangle from four possible sides.
-    """
-    
+def _iter_motion_plans_to_rectangle(
+    state: State,
+    robot: Object,
+    target: Object,
+    action_space: Space,
+    robot_to_target_side_dist: float,
+    static_object_body_cache: Dict[Object, MultiBody2D],
+) -> Iterator[List[SE2Pose]]:
+    """Helper for picking and placing that generates motion plans to approach a
+    rectangle from four possible sides."""
+
     target_width = state.get(target, "width")
     target_height = state.get(target, "height")
     target_cx = state.get(target, "x") + target_width / 2
@@ -47,7 +50,7 @@ def _iter_motion_plans_to_rectangle(state: State, robot: Object, target: Object,
         (-np.pi / 2, target_height),
         (0, target_width),
         (np.pi / 2, target_height),
-        (np.pi, target_width)
+        (np.pi, target_width),
     ]:
         # Determine the approach pose relative to target.
         target_pad = target_size / 2
@@ -120,9 +123,12 @@ def create_rectangle_vaccum_pick_option(action_space: Space) -> ParameterizedOpt
         robot_to_target_side_dist = arm_length + gripper_pad + vacuum_pad
         static_object_body_cache: Dict[Object, MultiBody2D] = {}
         for pose_plan in _iter_motion_plans_to_rectangle(
-            state, robot, target, action_space,
+            state,
+            robot,
+            target,
+            action_space,
             robot_to_target_side_dist,
-            static_object_body_cache
+            static_object_body_cache,
         ):
             # Validate the motion plan by extending the arm and seeing if we
             # would be in collision when the arm is extended.
@@ -154,12 +160,15 @@ def create_rectangle_vaccum_pick_option(action_space: Space) -> ParameterizedOpt
     return ParameterizedOption(name, params_space, _policy, _initiable, _terminal)
 
 
-def create_rectangle_vaccum_table_place_option(action_space: Space) -> ParameterizedOption:
+def create_rectangle_vaccum_table_place_option(
+    action_space: Space,
+) -> ParameterizedOption:
     """Use motion planning to get to a pre-place pose, extend the arm, turn off
     the vacuum, and then retract the arm.
-    
-    Considers discrete set of placements starting at the back of the table and
-    then moving towards the front until no collisions are detected.
+
+    Considers discrete set of placements starting at the back of the
+    table and then moving towards the front until no collisions are
+    detected.
     """
 
     name = "RectangleVacuumPlace"
@@ -185,15 +194,20 @@ def create_rectangle_vaccum_table_place_option(action_space: Space) -> Parameter
         # collision is about to occur. If the held object is on the table,
         # return that plan. Otherwise, try the next of the four approaches.
         robot_base_radius = state.get(robot, "base_radius")
-        held_obj_max_size = max(state.get(held_obj, "width"), state.get(held_obj, "height"))
+        held_obj_max_size = max(
+            state.get(held_obj, "width"), state.get(held_obj, "height")
+        )
         pad = 0.25 * robot_base_radius
         robot_to_target_side_dist = robot_base_radius + held_obj_max_size + pad
         for pose_plan in _iter_motion_plans_to_rectangle(
-            state, robot, table, action_space,
+            state,
+            robot,
+            table,
+            action_space,
             robot_to_target_side_dist,
-            static_object_body_cache
+            static_object_body_cache,
         ):
-            
+
             # Simulate extending the arm from the last pose in the plan.
             sim_state = state.copy()
             sim_state.set(robot, "x", pose_plan[-1].x)
@@ -219,10 +233,13 @@ def create_rectangle_vaccum_table_place_option(action_space: Space) -> Parameter
 
             # Check if the held object is on the table. If so, finish the plan.
             if is_inside(sim_state, held_obj, table, static_object_body_cache):
-                action_plan = crv_pose_plan_to_action_plan(pose_plan, action_space, vacuum_while_moving=True)
+                action_plan = crv_pose_plan_to_action_plan(
+                    pose_plan, action_space, vacuum_while_moving=True
+                )
                 # Extend arm.
                 arm_extend = np.array(
-                    [0.0, 0.0, 0.0, action_space.high[3], action_space.high[4]], dtype=np.float32
+                    [0.0, 0.0, 0.0, action_space.high[3], action_space.high[4]],
+                    dtype=np.float32,
                 )
                 for _ in range(num_arm_extensions):
                     action_plan.append(arm_extend)
@@ -238,13 +255,6 @@ def create_rectangle_vaccum_table_place_option(action_space: Space) -> Parameter
                 # Store the plan.
                 memory["action_plan"] = action_plan
                 return True
-
-            # TODO remove
-            # import cv2
-            # from geom2drobotenvs.utils import render_state
-            # img = render_state(sim_state)
-            # cv2.imshow("debug", cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
-            # cv2.waitKey(0)
 
         # All approach angles failed.
         return False
