@@ -24,8 +24,9 @@ def test_create_rectangle_vaccum_pick_option():
     block = min(blocks, key=lambda b: obs.get(b, "width") * obs.get(b, "height"))
     option = parameterized_opt.ground([robot, block])
 
-    # Move the robot up to a more interesting initial location.
-    obs.set(robot, "y", obs.get(robot, "x") + 2.0)
+    # Move the robot to a more interesting initial location.
+    obs.set(robot, "x", obs.get(robot, "x") - 3.0)
+    obs.set(robot, "y", obs.get(robot, "y") - 3.0)
     obs.set(robot, "theta", 2 * np.pi / 3)
     obs, _ = env.reset(options={"init_state": obs})
 

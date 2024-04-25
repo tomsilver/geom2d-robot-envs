@@ -18,23 +18,31 @@ from geom2drobotenvs.structs import MultiBody2D, SE2Pose
 from geom2drobotenvs.utils import (
     CRVRobotActionSpace,
     crv_pose_plan_to_action_plan,
+    get_suctioned_objects,
     run_motion_planning_for_crv_robot,
     state_has_collision,
 )
 
 
 def create_rectangle_vaccum_pick_option(action_space: Space) -> ParameterizedOption:
-    """Use motion planning to get to a pre-pick pose.
-
-    Then extend the arm and turn on the vacuum.
-    """
+    """Use motion planning to get to a pre-pick pose, extend the arm, turn on
+    the vacuum, and then retract the arm."""
 
     name = "RectangleVacuumPick"
     params_space = ObjectSequenceSpace([CRVRobotType, RectangleType])
     assert isinstance(action_space, CRVRobotActionSpace)
 
     def _policy(state: State, params: Sequence[Object], memory: OptionMemory) -> Action:
-        robot, _ = params
+        robot, target = params
+
+        # If the target is grasped, retract right away.
+        grasped_objects = {o for o, _ in get_suctioned_objects(state, robot)}
+        if target in grasped_objects:
+            return np.array(
+                [0.0, 0.0, 0.0, action_space.low[3], action_space.high[4]],
+                dtype=np.float32,
+            )
+
         # Moving is finished.
         if not memory["move_plan"]:
             # Arm is extended, so turn on the vacuum.
@@ -78,7 +86,7 @@ def create_rectangle_vaccum_pick_option(action_space: Space) -> ParameterizedOpt
             else:
                 target_pad = target_height / 2
             gripper_pad = gripper_width / 2
-            vacuum_pad = 1e-5  # leave a small space to avoid collisions
+            vacuum_pad = 1e-6  # leave a small space to avoid collisions
             approach_dist = arm_length + target_pad + gripper_pad + vacuum_pad
             approach_x = -approach_dist * np.cos(approach_theta)
             approach_y = -approach_dist * np.sin(approach_theta)
@@ -117,11 +125,12 @@ def create_rectangle_vaccum_pick_option(action_space: Space) -> ParameterizedOpt
         return False
 
     def _terminal(state: State, params: Sequence[Object], memory: OptionMemory) -> bool:
-        robot, _ = params
-        arm_length = state.get(robot, "arm_length")
+        robot, target = params
+        robot_radius = state.get(robot, "base_radius")
         arm_joint = state.get(robot, "arm_joint")
-        arm_extended = abs(arm_length - arm_joint) < 1e-5
-        vacuum_on = state.get(robot, "vacuum") > 0.5
-        return not memory["move_plan"] and arm_extended and vacuum_on
+        arm_retracted = abs(robot_radius - arm_joint) < 1e-5
+        grasped_objects = {o for o, _ in get_suctioned_objects(state, robot)}
+        target_grasped = target in grasped_objects
+        return not memory["move_plan"] and arm_retracted and target_grasped
 
     return ParameterizedOption(name, params_space, _policy, _initiable, _terminal)

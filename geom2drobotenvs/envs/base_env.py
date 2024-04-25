@@ -15,6 +15,7 @@ from geom2drobotenvs.structs import MultiBody2D, SE2Pose
 from geom2drobotenvs.utils import (
     CRVRobotActionSpace,
     get_suctioned_objects,
+    get_tool_tip_position,
     render_state,
     state_has_collision,
 )
@@ -106,9 +107,11 @@ class Geom2DRobotEnv(gym.Env):
         state.set(robot, "vacuum", vac)
 
         # Update the state of any objects that are currently suctioned.
-        world_to_robot = SE2Pose(new_x, new_y, new_theta)
-        for obj, robot_to_obj in get_suctioned_objects(self._current_state, robot):
-            world_to_obj = world_to_robot * robot_to_obj
+        gripper_x, gripper_y = get_tool_tip_position(state, robot)
+        world_to_gripper = SE2Pose(gripper_x, gripper_y, new_theta)
+        suctioned_objs = get_suctioned_objects(self._current_state, robot)
+        for obj, gripper_to_obj in suctioned_objs:
+            world_to_obj = world_to_gripper * gripper_to_obj
             state.set(obj, "x", world_to_obj.x)
             state.set(obj, "y", world_to_obj.y)
             state.set(obj, "theta", world_to_obj.theta)

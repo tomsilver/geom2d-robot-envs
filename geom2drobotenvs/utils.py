@@ -340,12 +340,15 @@ def get_relative_se2_transform(state: State, obj1: Object, obj2: Object) -> SE2P
 
 def get_suctioned_objects(state: State, robot: Object) -> List[Tuple[Object, SE2Pose]]:
     """Find objects that are in the suction zone of a CRVRobot and return the
-    associated transform from robot to suctioned object."""
+    associated transform from gripper tool tip to suctioned object."""
     # If the robot's vacuum is not on, there are no suctioned objects.
     if state.get(robot, "vacuum") <= 0.5:
         return []
     robot_multibody = _robot_to_multibody2d(robot, state)
     suction_body = robot_multibody.get_body("suction")
+    gripper_x, gripper_y = get_tool_tip_position(state, robot)
+    gripper_theta = state.get(robot, "theta")
+    world_to_gripper = SE2Pose(gripper_x, gripper_y, gripper_theta)
     # Find MOVABLE objects in collision with the suction geom.
     movable_objects = [o for o in state if o != robot and state.get(o, "static") < 0.5]
     suctioned_objects: List[Object] = []
@@ -355,8 +358,9 @@ def get_suctioned_objects(state: State, robot: Object) -> List[Tuple[Object, SE2
         obj_multibody = object_to_multibody2d(obj, state, {})
         for obj_body in obj_multibody.bodies:
             if geom2ds_intersect(suction_body.geom, obj_body.geom):
-                robot_to_obj = get_relative_se2_transform(state, robot, obj)
-                suctioned_objects.append((obj, robot_to_obj))
+                world_to_obj = get_se2_pose(state, obj)
+                gripper_to_obj = world_to_gripper.inverse * world_to_obj
+                suctioned_objects.append((obj, gripper_to_obj))
     return suctioned_objects
 
 
