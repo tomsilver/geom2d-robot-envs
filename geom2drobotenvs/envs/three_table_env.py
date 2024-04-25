@@ -100,8 +100,8 @@ class ThreeTableEnv(Geom2DRobotEnv):
         }
 
         # Create right table walls.
-        right_table_top_wall = RectangleType("right_table_top_wall")
         wall_thickness = table_long_size / 10.0
+        right_table_top_wall = RectangleType("right_table_top_wall")
         init_state_dict[right_table_top_wall] = {
             "x": right_table_x,
             "y": right_table_y + table_short_size - wall_thickness,
