@@ -14,13 +14,15 @@ from relational_structs import (
     State,
 )
 from relational_structs.utils import abstract
+from tomsgeoms2d.structs import Rectangle, LineSegment
+from tomsgeoms2d.utils import geom2ds_intersect
 
 # Needed to register environments for gym.make().
 import geom2drobotenvs  # pylint: disable=unused-import
-from geom2drobotenvs.concepts import is_inside
+from geom2drobotenvs.concepts import is_inside, is_movable_rectangle
 from geom2drobotenvs.object_types import CRVRobotType, RectangleType
 from geom2drobotenvs.structs import MultiBody2D, ZOrder
-from geom2drobotenvs.utils import get_suctioned_objects
+from geom2drobotenvs.utils import get_suctioned_objects, object_to_multibody2d, z_orders_may_collide
 
 
 def _create_predicates(
@@ -38,13 +40,47 @@ def _create_predicates(
 
     # ClearToPick.
     def _clear_to_pick_holds(state: State, objs: Sequence[Object]) -> bool:
+        if not _on_holds(state, objs):
+            return False
         target, table = objs
+        if not is_movable_rectangle(state, target):
+            return False
         # This is difficult to define in general... so we'll define it in a
         # hacky way... draw a line from the object to each side of the table
         # that it's on. If that line doesn't intersect anything, we're clear.
-        import ipdb
-
-        ipdb.set_trace()
+        table_mb = object_to_multibody2d(table, state, static_object_cache)
+        assert len(table_mb.bodies) == 1
+        table_rect = table_mb.bodies[0].geom
+        assert isinstance(table_rect, Rectangle)
+        target_mb = object_to_multibody2d(target, state, static_object_cache)
+        assert len(target_mb.bodies) == 1
+        target_rect = target_mb.bodies[0].geom
+        assert isinstance(target_rect, Rectangle)
+        target_x, target_y = target_rect.center
+        target_z_order = ZOrder(int(state.get(target, "z_order")))
+        obstacles = set(state) - {target, table}
+        for (x1, y1), (x2, y2) in zip(
+            table_rect.vertices, table_rect.vertices[1:] + [table_rect.vertices[0]]
+        ):
+            side_x = (x1 + x2) / 2
+            side_y = (y1 + y2) / 2
+            line_geom = LineSegment(target_x, target_y, side_x, side_y)
+            line_is_clear = True
+            for obstacle in obstacles:
+                if not line_is_clear:
+                    break
+                obstacle_multibody = object_to_multibody2d(obstacle, state, static_object_cache)
+                for obstacle_body in obstacle_multibody.bodies:
+                    if not z_orders_may_collide(
+                        target_z_order, obstacle_body.z_order
+                    ):
+                        continue
+                    if geom2ds_intersect(line_geom, obstacle_body.geom):
+                        line_is_clear = False
+                        break
+            if line_is_clear:
+                return True
+        return False
 
     ClearToPick = Predicate(
         "ClearToPick", [RectangleType, RectangleType], _clear_to_pick_holds
@@ -139,7 +175,7 @@ def _main() -> None:
 
     # Get the relevant objects.
     blocks = [
-        o for o in obs if o.is_instance(RectangleType) and obs.get(o, "static") < 0.5
+        o for o in obs if is_movable_rectangle(obs, o)
     ]
     blocks = sorted(blocks, key=lambda b: obs.get(b, "width") * obs.get(b, "height"))
     tables = [
