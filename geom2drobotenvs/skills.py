@@ -1,6 +1,6 @@
 """Skills that might be useful in certain environments."""
 
-from typing import Dict, Sequence
+from typing import Dict, Sequence, Iterator, List
 
 import numpy as np
 from gym.spaces import Space
@@ -22,6 +22,50 @@ from geom2drobotenvs.utils import (
     run_motion_planning_for_crv_robot,
     state_has_collision,
 )
+
+
+def _iter_motion_plans_to_rectangle(state: State, robot: Object, target: Object,
+                                    action_space: Space,
+                                    robot_to_target_side_dist: float,
+                                    static_object_body_cache: Dict[Object, MultiBody2D]) -> Iterator[List[SE2Pose]]:
+    """Helper for picking and placing that generates motion plans to approach
+    a rectangle from four possible sides.
+    """
+    
+    target_width = state.get(target, "width")
+    target_height = state.get(target, "height")
+    target_cx = state.get(target, "x") + target_width / 2
+    target_cy = state.get(target, "y") + target_height / 2
+    target_theta = state.get(target, "theta")
+    world_to_target = SE2Pose(target_cx, target_cy, target_theta)
+
+    # Try approaching the rectangle from each of four sides, while at the
+    # farthest possible distance.
+    for approach_theta, target_size in [
+        (-np.pi / 2, target_height),
+        (0, target_width),
+        (np.pi / 2, target_height),
+        (np.pi, target_width)
+    ]:
+        # Determine the approach pose relative to target.
+        target_pad = target_size / 2
+        approach_dist = robot_to_target_side_dist + target_pad
+        approach_x = -approach_dist * np.cos(approach_theta)
+        approach_y = -approach_dist * np.sin(approach_theta)
+        target_to_robot = SE2Pose(approach_x, approach_y, approach_theta)
+        # Convert to absolute pose.
+        target_pose = world_to_target * target_to_robot
+
+        # Run motion planning.
+        pose_plan = run_motion_planning_for_crv_robot(
+            state,
+            robot,
+            target_pose,
+            action_space,
+            static_object_body_cache=static_object_body_cache,
+        )
+        if pose_plan is not None:
+            yield pose_plan
 
 
 def create_rectangle_vaccum_pick_option(action_space: Space) -> ParameterizedOption:
@@ -65,26 +109,87 @@ def create_rectangle_vaccum_pick_option(action_space: Space) -> ParameterizedOpt
     ) -> bool:
         robot, target = params
 
+        # Try approaching the rectangle from each of four sides, while at the
+        # farthest possible distance.
         arm_length = state.get(robot, "arm_length")
         gripper_width = state.get(robot, "gripper_width")
-        target_width = state.get(target, "width")
-        target_height = state.get(target, "height")
-        target_cx = state.get(target, "x") + target_width / 2
-        target_cy = state.get(target, "y") + target_height / 2
-        target_theta = state.get(target, "theta")
-        world_to_target = SE2Pose(target_cx, target_cy, target_theta)
+        gripper_pad = gripper_width / 2
+        vacuum_pad = 1e-6  # leave a small space to avoid collisions
+        robot_to_target_side_dist = arm_length + gripper_pad + vacuum_pad
+        static_object_body_cache: Dict[Object, MultiBody2D] = {}
+        for pose_plan in _iter_motion_plans_to_rectangle(
+            state, robot, target, action_space,
+            robot_to_target_side_dist,
+            static_object_body_cache
+        ):
+            # Validate the motion plan by extending the arm and seeing if we
+            # would be in collision when the arm is extended.
+            target_state = state.copy()
+            final_pose = pose_plan[-1]
+            target_state.set(robot, "x", final_pose.x)
+            target_state.set(robot, "y", final_pose.y)
+            target_state.set(robot, "theta", final_pose.theta)
+            target_state.set(robot, "arm_joint", arm_length)
+            if state_has_collision(target_state, static_object_body_cache):
+                continue
+            # Found a valid plan; convert it to an action plan and finish.
+            action_plan = crv_pose_plan_to_action_plan(pose_plan, action_space)
+            memory["move_plan"] = action_plan
+            return True
+
+        # All approach angles failed.
+        return False
+
+    def _terminal(state: State, params: Sequence[Object], memory: OptionMemory) -> bool:
+        robot, target = params
+        robot_radius = state.get(robot, "base_radius")
+        arm_joint = state.get(robot, "arm_joint")
+        arm_retracted = abs(robot_radius - arm_joint) < 1e-5
+        grasped_objects = {o for o, _ in get_suctioned_objects(state, robot)}
+        target_grasped = target in grasped_objects
+        return not memory["move_plan"] and arm_retracted and target_grasped
+
+    return ParameterizedOption(name, params_space, _policy, _initiable, _terminal)
+
+
+def create_rectangle_vaccum_table_place_option(action_space: Space) -> ParameterizedOption:
+    """Use motion planning to get to a pre-place pose, extend the arm, turn off
+    the vacuum, and then retract the arm.
+    
+    Considers discrete set of placements starting at the back of the table and
+    then moving towards the front until no collisions are detected.
+    """
+
+    name = "RectangleVacuumPlace"
+    # robot, held object, target table
+    params_space = ObjectSequenceSpace([CRVRobotType, RectangleType, RectangleType])
+    assert isinstance(action_space, CRVRobotActionSpace)
+
+    def _policy(state: State, params: Sequence[Object], memory: OptionMemory) -> Action:
+        # This policy is completely open-loop.
+        del state, params  # unused
+        return memory["action_plan"].pop(0)
+
+    def _initiable(
+        state: State, params: Sequence[Object], memory: OptionMemory
+    ) -> bool:
+        robot, held_obj, table = params
 
         static_object_body_cache: Dict[Object, MultiBody2D] = {}
 
-        # Try approaching the rectangle from each of four sides, while at the
-        # farthest possible distance.
-        for approach_theta in [-np.pi / 2, 0, np.pi / 2, np.pi]:
+        # Try to approach the table from each of the four sides. After each
+        # motion plan, try to extend the arm as far as possible until a
+        # collision is about to occur. If the held object is on the table,
+        # return that plan. Otherwise, try the next of the four approaches.
+        for approach_theta, table_size in [
+            (-np.pi / 2, table_height),
+            (0, table_width),
+            (np.pi / 2, table_height),
+            (np.pi, table_width)
+        ]:
+            
 
-            # Determine the approach pose relative to target.
-            if np.isclose(approach_theta % np.pi, 0.0):  # horizontal approach
-                target_pad = target_width / 2
-            else:
-                target_pad = target_height / 2
+            target_pad = table_size / 2
             gripper_pad = gripper_width / 2
             vacuum_pad = 1e-6  # leave a small space to avoid collisions
             approach_dist = arm_length + target_pad + gripper_pad + vacuum_pad
