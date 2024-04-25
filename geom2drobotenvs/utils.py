@@ -281,14 +281,17 @@ def state_has_collision(
     state: State, static_object_cache: Dict[Object, MultiBody2D]
 ) -> bool:
     """Check if a robot or held object has a collision with another object."""
-    # NOTE: need to handle held objects.
     obj_to_multibody = {
         o: object_to_multibody2d(o, state, static_object_cache) for o in state
     }
     for robot in state.get_objects(CRVRobotType):
-        obstacles = [o for o in state if o != robot]
-        robot_multibody = obj_to_multibody[robot]
-        for robot_body in robot_multibody.bodies:
+        suctioned_objs = {o for o, _ in get_suctioned_objects(state, robot)}
+        robot_bodies = obj_to_multibody[robot].bodies
+        # Treat the suctioned objects like part of the robot bodies.
+        for suctioned_obj in suctioned_objs:
+            robot_bodies.extend(obj_to_multibody[suctioned_obj].bodies)
+        obstacles = [o for o in state if o not in {robot} | suctioned_objs]
+        for robot_body in robot_bodies:
             for obstacle in obstacles:
                 obstacle_multibody = obj_to_multibody[obstacle]
                 for obstacle_body in obstacle_multibody.bodies:
