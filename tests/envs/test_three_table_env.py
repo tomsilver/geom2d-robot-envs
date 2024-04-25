@@ -3,8 +3,7 @@
 from typing import Dict, Tuple
 
 import numpy as np
-from relational_structs.spaces import ObjectCentricStateSpace
-from relational_structs.structs import Object, State
+from relational_structs import Object, ObjectCentricStateSpace, State
 from relational_structs.utils import create_state_from_dict
 
 from geom2drobotenvs.envs.three_table_env import ThreeTableEnv
