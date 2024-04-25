@@ -1,7 +1,7 @@
 """Plan and execute in the ThreeTableEnv()."""
 
 import argparse
-from typing import Sequence, Set
+from typing import Dict, Sequence, Set
 
 import gym
 from gym.wrappers.record_video import RecordVideo
@@ -17,51 +17,55 @@ from relational_structs.utils import abstract
 
 # Needed to register environments for gym.make().
 import geom2drobotenvs  # pylint: disable=unused-import
+from geom2drobotenvs.concepts import is_inside
 from geom2drobotenvs.object_types import CRVRobotType, RectangleType
-from geom2drobotenvs.structs import ZOrder
+from geom2drobotenvs.structs import MultiBody2D, ZOrder
+from geom2drobotenvs.utils import get_suctioned_objects
 
 
-def _create_predicates() -> Set[Predicate]:
+def _create_predicates(
+    static_object_cache: Dict[Object, MultiBody2D]
+) -> Set[Predicate]:
     predicates: Set[Predicate] = set()
 
     # On.
     def _on_holds(state: State, objs: Sequence[Object]) -> bool:
         target, table = objs
-        import ipdb
-
-        ipdb.set_trace()
+        return is_inside(state, target, table, static_object_cache)
 
     On = Predicate("On", [RectangleType, RectangleType], _on_holds)
     predicates.add(On)
 
     # ClearToPick.
     def _clear_to_pick_holds(state: State, objs: Sequence[Object]) -> bool:
-        (target,) = objs
+        target, table = objs
+        # This is difficult to define in general... so we'll define it in a
+        # hacky way... draw a line from the object to each side of the table
+        # that it's on. If that line doesn't intersect anything, we're clear.
         import ipdb
 
         ipdb.set_trace()
 
-    ClearToPick = Predicate("ClearToPick", [RectangleType], _clear_to_pick_holds)
+    ClearToPick = Predicate(
+        "ClearToPick", [RectangleType, RectangleType], _clear_to_pick_holds
+    )
     predicates.add(ClearToPick)
 
     # HandEmpty.
     def _hand_empty_holds(state: State, objs: Sequence[Object]) -> bool:
         (robot,) = objs
-        import ipdb
-
-        ipdb.set_trace()
+        return not get_suctioned_objects(state, robot)
 
     HandEmpty = Predicate("HandEmpty", [CRVRobotType], _hand_empty_holds)
     predicates.add(HandEmpty)
 
     # Holding.
     def _holding_holds(state: State, objs: Sequence[Object]) -> bool:
-        robot, obj = objs
-        import ipdb
+        obj, robot = objs
+        held_objs = {o for o, _ in get_suctioned_objects(state, robot)}
+        return obj in held_objs
 
-        ipdb.set_trace()
-
-    Holding = Predicate("Holding", [CRVRobotType, RectangleType], _holding_holds)
+    Holding = Predicate("Holding", [RectangleType, CRVRobotType], _holding_holds)
     predicates.add(Holding)
 
     return predicates
@@ -82,7 +86,7 @@ def _create_operators(predicates: Set[Predicate]) -> Set[LiftedOperator]:
     table = RectangleType("?table")
     preconditions = {
         On([target, table]),
-        ClearToPick([target]),
+        ClearToPick([target, table]),
         HandEmpty([robot]),
     }
     add_effects = {
@@ -90,7 +94,7 @@ def _create_operators(predicates: Set[Predicate]) -> Set[LiftedOperator]:
     }
     delete_effects = {
         On([target, table]),
-        ClearToPick([target]),
+        ClearToPick([target, table]),
         HandEmpty([robot]),
     }
     Pick = LiftedOperator(
@@ -107,7 +111,7 @@ def _create_operators(predicates: Set[Predicate]) -> Set[LiftedOperator]:
     }
     add_effects = {
         On([held, table]),
-        ClearToPick([held]),
+        ClearToPick([held, table]),
         HandEmpty([robot]),
     }
     delete_effects = {
@@ -151,7 +155,8 @@ def _main() -> None:
     table = max(tables, key=dist)
 
     # Construct a PDDL domain and problem.
-    predicates = _create_predicates()
+    static_object_cache: Dict[Object, MultiBody2D] = {}
+    predicates = _create_predicates(static_object_cache)
     operators = _create_operators(predicates)
     types = {o.type for o in obs}
     domain = PDDLDomain("three-tables", operators, predicates, types)
