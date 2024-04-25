@@ -47,8 +47,8 @@ def test_crv_pick_and_place():
     obs, _ = env.reset(options={"init_state": obs})
 
     # Uncomment to record videos.
-    # from gym.wrappers.record_video import RecordVideo
-    # env = RecordVideo(env, "unit_test_videos")
+    from gym.wrappers.record_video import RecordVideo
+    env = RecordVideo(env, "unit_test_videos")
 
     assert pick_block.initiable(obs)
     for _ in range(100):  # gratuitous
@@ -73,7 +73,5 @@ def test_crv_pick_and_place():
         assert False, "Place option did not terminate."
 
     # TODO assert something
-
-    import ipdb; ipdb.set_trace()
 
     env.close()

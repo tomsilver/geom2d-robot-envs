@@ -18,7 +18,7 @@ from geom2drobotenvs.utils import (
 class ThreeTableEnv(Geom2DRobotEnv):
     """Environment with blocks on three tables."""
 
-    _robot_base_radius: ClassVar[float] = 0.36
+    _robot_base_radius: ClassVar[float] = 0.4
     _num_blocks: ClassVar[int] = 6
 
     def _sample_initial_state(self) -> State:
@@ -34,7 +34,7 @@ class ThreeTableEnv(Geom2DRobotEnv):
             "theta": 0.0,
             "base_radius": self._robot_base_radius,
             "arm_joint": self._robot_base_radius,  # arm is fully retracted
-            "arm_length": 5 * self._robot_base_radius,
+            "arm_length": 6 * self._robot_base_radius,
             "vacuum": 0.0,  # vacuum is off
             "gripper_height": 0.7,
             "gripper_width": 0.1,

@@ -23,6 +23,7 @@ from geom2drobotenvs.utils import (
     state_has_collision,
     snap_suctioned_objects,
 )
+from geom2drobotenvs.concepts import is_inside
 
 
 def _iter_motion_plans_to_rectangle(state: State, robot: Object, target: Object,
@@ -204,7 +205,7 @@ def create_rectangle_vaccum_table_place_option(action_space: Space) -> Parameter
             arm_length = sim_state.get(robot, "arm_length")
             arm_joint = sim_state.get(robot, "arm_joint")
             arm_dx = action_space.high[3]
-            while abs(arm_length - arm_joint) > 1e-6:
+            while arm_joint + 1e-6 < arm_length:
                 arm_joint += arm_dx
                 sim_state.set(robot, "arm_joint", arm_joint)
                 snap_suctioned_objects(sim_state, robot, suctioned_objs)
@@ -215,24 +216,41 @@ def create_rectangle_vaccum_table_place_option(action_space: Space) -> Parameter
                     snap_suctioned_objects(sim_state, robot, suctioned_objs)
                     break
                 num_arm_extensions += 1
-            
+
+            # Check if the held object is on the table. If so, finish the plan.
+            if is_inside(sim_state, held_obj, table, static_object_body_cache):
+                action_plan = crv_pose_plan_to_action_plan(pose_plan, action_space, vacuum_while_moving=True)
+                # Extend arm.
+                arm_extend = np.array(
+                    [0.0, 0.0, 0.0, action_space.high[3], action_space.high[4]], dtype=np.float32
+                )
+                for _ in range(num_arm_extensions):
+                    action_plan.append(arm_extend)
+                # Release the vacuum.
+                drop_action = np.zeros(5, dtype=action_space.dtype)
+                action_plan.append(drop_action)
+                # Retract the arm.
+                arm_retract = np.array(
+                    [0.0, 0.0, 0.0, action_space.low[3], 0.0], dtype=np.float32
+                )
+                for _ in range(num_arm_extensions):
+                    action_plan.append(arm_retract)
+                # Store the plan.
+                memory["action_plan"] = action_plan
+                return True
+
             # TODO remove
-            import cv2
-            from geom2drobotenvs.utils import render_state
-            img = render_state(sim_state)
-            cv2.imshow("debug", cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
-            cv2.waitKey(0)
+            # import cv2
+            # from geom2drobotenvs.utils import render_state
+            # img = render_state(sim_state)
+            # cv2.imshow("debug", cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+            # cv2.waitKey(0)
 
         # All approach angles failed.
         return False
 
     def _terminal(state: State, params: Sequence[Object], memory: OptionMemory) -> bool:
-        robot, target = params
-        robot_radius = state.get(robot, "base_radius")
-        arm_joint = state.get(robot, "arm_joint")
-        arm_retracted = abs(robot_radius - arm_joint) < 1e-5
-        grasped_objects = {o for o, _ in get_suctioned_objects(state, robot)}
-        target_grasped = target in grasped_objects
-        return not memory["move_plan"] and arm_retracted and target_grasped
+        del state, params
+        return not memory["action_plan"]
 
     return ParameterizedOption(name, params_space, _policy, _initiable, _terminal)
