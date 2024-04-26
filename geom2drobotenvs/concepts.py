@@ -5,8 +5,8 @@ from typing import Dict
 from relational_structs import Object, State
 from tomsgeoms2d.structs import Rectangle
 
-from geom2drobotenvs.structs import MultiBody2D
 from geom2drobotenvs.object_types import RectangleType
+from geom2drobotenvs.structs import MultiBody2D
 from geom2drobotenvs.utils import object_to_multibody2d
 
 
@@ -32,6 +32,7 @@ def is_inside(
         if not outer_geom.contains_point(x, y):
             return False
     return True
+
 
 def is_movable_rectangle(state: State, obj: Object) -> bool:
     """Checks if an object is a movable rectangle."""

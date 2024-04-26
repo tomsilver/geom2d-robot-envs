@@ -14,15 +14,21 @@ from relational_structs import (
     State,
 )
 from relational_structs.utils import abstract
-from tomsgeoms2d.structs import Rectangle, LineSegment
+from tomsgeoms2d.structs import LineSegment, Rectangle
 from tomsgeoms2d.utils import geom2ds_intersect
+from tomsutils.pddl_planning import run_pddl_planner
 
 # Needed to register environments for gym.make().
 import geom2drobotenvs  # pylint: disable=unused-import
 from geom2drobotenvs.concepts import is_inside, is_movable_rectangle
-from geom2drobotenvs.object_types import CRVRobotType, RectangleType
-from geom2drobotenvs.structs import MultiBody2D, ZOrder
-from geom2drobotenvs.utils import get_suctioned_objects, object_to_multibody2d, z_orders_may_collide
+from geom2drobotenvs.object_types import CRVRobotType, Geom2DType, RectangleType
+from geom2drobotenvs.structs import MultiBody2D, SE2Pose, ZOrder
+from geom2drobotenvs.utils import (
+    get_se2_pose,
+    get_suctioned_objects,
+    object_to_multibody2d,
+    z_orders_may_collide,
+)
 
 
 def _create_predicates(
@@ -30,17 +36,42 @@ def _create_predicates(
 ) -> Set[Predicate]:
     predicates: Set[Predicate] = set()
 
-    # On.
-    def _on_holds(state: State, objs: Sequence[Object]) -> bool:
+    # Helper function.
+    def _get_table_reference_frame(state: State, table: Object) -> SE2Pose:
+        import ipdb
+
+        ipdb.set_trace()
+
+    # OnTable.
+    def _on_table_holds(state: State, objs: Sequence[Object]) -> bool:
         target, table = objs
         return is_inside(state, target, table, static_object_cache)
 
-    On = Predicate("On", [RectangleType, RectangleType], _on_holds)
-    predicates.add(On)
+    OnTable = Predicate("OnTable", [RectangleType, RectangleType], _on_table_holds)
+    predicates.add(OnTable)
+
+    # InFrontOnTable.
+    def _in_front_on_table(state: State, objs: Sequence[Object]) -> bool:
+        obj1, obj2, table = objs
+        world_to_table = _get_table_reference_frame(state, table)
+        world_to_obj1 = get_se2_pose(state, obj1)
+        world_to_obj2 = get_se2_pose(state, obj2)
+        table_to_obj1 = world_to_table.inverse * world_to_obj1
+        table_to_obj2 = world_to_table.inverse * world_to_obj2
+        import ipdb
+
+        ipdb.set_trace()
+
+    InFrontOnTable = Predicate(
+        "InFrontOnTable",
+        [RectangleType, RectangleType, RectangleType],
+        _in_front_on_table,
+    )
+    predicates.add(InFrontOnTable)
 
     # ClearToPick.
     def _clear_to_pick_holds(state: State, objs: Sequence[Object]) -> bool:
-        if not _on_holds(state, objs):
+        if not _on_table_holds(state, objs):
             return False
         target, table = objs
         if not is_movable_rectangle(state, target):
@@ -69,11 +100,11 @@ def _create_predicates(
             for obstacle in obstacles:
                 if not line_is_clear:
                     break
-                obstacle_multibody = object_to_multibody2d(obstacle, state, static_object_cache)
+                obstacle_multibody = object_to_multibody2d(
+                    obstacle, state, static_object_cache
+                )
                 for obstacle_body in obstacle_multibody.bodies:
-                    if not z_orders_may_collide(
-                        target_z_order, obstacle_body.z_order
-                    ):
+                    if not z_orders_may_collide(target_z_order, obstacle_body.z_order):
                         continue
                     if geom2ds_intersect(line_geom, obstacle_body.geom):
                         line_is_clear = False
@@ -111,47 +142,55 @@ def _create_operators(predicates: Set[Predicate]) -> Set[LiftedOperator]:
     operators: Set[LiftedOperator] = set()
     pred_name_to_pred = {p.name: p for p in predicates}
 
-    On = pred_name_to_pred["On"]
+    OnTable = pred_name_to_pred["OnTable"]
     HandEmpty = pred_name_to_pred["HandEmpty"]
     ClearToPick = pred_name_to_pred["ClearToPick"]
     Holding = pred_name_to_pred["Holding"]
+    InFrontOnTable = pred_name_to_pred["InFrontOnTable"]
 
-    # Pick.
+    # PickFromInFront.
     robot = CRVRobotType("?robot")
     target = RectangleType("?target")
+    behind = RectangleType("?behind")
     table = RectangleType("?table")
     preconditions = {
-        On([target, table]),
+        OnTable([target, table]),
         ClearToPick([target, table]),
         HandEmpty([robot]),
+        InFrontOnTable([target, behind, table]),
     }
     add_effects = {
         Holding([target, robot]),
+        ClearToPick([behind, table]),
     }
     delete_effects = {
-        On([target, table]),
+        OnTable([target, table]),
         ClearToPick([target, table]),
         HandEmpty([robot]),
     }
-    Pick = LiftedOperator(
-        "Pick", [robot, target, table], preconditions, add_effects, delete_effects
+    PickFromInFront = LiftedOperator(
+        "PickFromInFront",
+        [robot, target, table],
+        preconditions,
+        add_effects,
+        delete_effects,
     )
-    operators.add(Pick)
+    operators.add(PickFromInFront)
 
     # Place.
     robot = CRVRobotType("?robot")
     held = RectangleType("?held")
     table = RectangleType("?table")
     preconditions = {
-        Holding([target, robot]),
+        Holding([held, robot]),
     }
     add_effects = {
-        On([held, table]),
+        OnTable([held, table]),
         ClearToPick([held, table]),
         HandEmpty([robot]),
     }
     delete_effects = {
-        Holding([target, robot]),
+        Holding([held, robot]),
     }
     Place = LiftedOperator(
         "Place", [robot, held, table], preconditions, add_effects, delete_effects
@@ -174,9 +213,7 @@ def _main() -> None:
     env.action_space.seed(args.seed)
 
     # Get the relevant objects.
-    blocks = [
-        o for o in obs if is_movable_rectangle(obs, o)
-    ]
+    blocks = [o for o in obs if is_movable_rectangle(obs, o)]
     blocks = sorted(blocks, key=lambda b: obs.get(b, "width") * obs.get(b, "height"))
     tables = [
         o
@@ -194,16 +231,18 @@ def _main() -> None:
     static_object_cache: Dict[Object, MultiBody2D] = {}
     predicates = _create_predicates(static_object_cache)
     operators = _create_operators(predicates)
-    types = {o.type for o in obs}
+    types = {Geom2DType, CRVRobotType, RectangleType}
     domain = PDDLDomain("three-tables", operators, predicates, types)
 
     objects = set(obs)
     init_atoms = abstract(obs, predicates)
     pred_name_to_pred = {p.name: p for p in predicates}
-    On = pred_name_to_pred["On"]
-    goal = {On([block, table]) for block in blocks}
+    OnTable = pred_name_to_pred["OnTable"]
+    goal = {OnTable([block, table]) for block in blocks}
     problem = PDDLProblem(domain.name, "problem0", objects, init_atoms, goal)
 
+    action_strs = run_pddl_planner(str(domain), str(problem))
+    assert action_strs is not None
     import ipdb
 
     ipdb.set_trace()
