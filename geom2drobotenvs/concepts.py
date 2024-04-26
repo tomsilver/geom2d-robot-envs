@@ -3,11 +3,10 @@
 from typing import Dict
 
 from relational_structs import Object, State
-from tomsgeoms2d.structs import Rectangle
 
 from geom2drobotenvs.object_types import RectangleType
 from geom2drobotenvs.structs import MultiBody2D
-from geom2drobotenvs.utils import object_to_multibody2d, rectangle_object_to_geom
+from geom2drobotenvs.utils import rectangle_object_to_geom
 
 
 def is_inside(

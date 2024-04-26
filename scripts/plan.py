@@ -6,31 +6,30 @@ from typing import Dict, Sequence, Set, Tuple
 import gym
 from gym.wrappers.record_video import RecordVideo
 from relational_structs import (
+    GroundOperator,
     LiftedOperator,
     Object,
+    Option,
     PDDLDomain,
     PDDLProblem,
     Predicate,
     State,
-    GroundOperator,
-    Option,
-    ParameterizedOption,
 )
 from relational_structs.utils import abstract, parse_pddl_plan
 from tomsgeoms2d.structs import LineSegment, Rectangle
 from tomsgeoms2d.utils import geom2ds_intersect
 from tomsutils.pddl_planning import run_pddl_planner
 
-import numpy as np
-
 # Needed to register environments for gym.make().
 import geom2drobotenvs  # pylint: disable=unused-import
 from geom2drobotenvs.concepts import is_inside, is_movable_rectangle
 from geom2drobotenvs.object_types import CRVRobotType, Geom2DType, RectangleType
-from geom2drobotenvs.structs import MultiBody2D, SE2Pose, ZOrder
-from geom2drobotenvs.skills import create_rectangle_vaccum_pick_option, create_rectangle_vaccum_table_place_option
+from geom2drobotenvs.skills import (
+    create_rectangle_vaccum_pick_option,
+    create_rectangle_vaccum_table_place_option,
+)
+from geom2drobotenvs.structs import MultiBody2D, ZOrder
 from geom2drobotenvs.utils import (
-    get_se2_pose,
     get_suctioned_objects,
     object_to_multibody2d,
     rectangle_object_to_geom,
@@ -56,44 +55,28 @@ def _create_predicates(
                 ret_objs.add(other_obj)
         return ret_objs
 
-    # def _get_shelf_reference_frame(state: State, shelf: Object) -> SE2Pose:
-    #     walls = _get_immovable_objects_on_object(state, shelf)
-    #     assert len(walls) == 3
-    #     # I'm too lazy to do this in full generality right now... so this is
-    #     # extremely specific.
-    #     orientation_to_walls = {"vertical": set(), "horizontal": set()}
-    #     for wall in walls:
-    #         assert np.isclose(state.get(wall, "theta"), 0)
-    #         if state.get(wall, "width") > state.get(wall, "height"):
-    #             orientation_to_walls["horizontal"].add(wall)
-    #         else:
-    #             orientation_to_walls["vertical"].add(wall)
-    #     if len(orientation_to_walls["horizontal"]) == 2:
-    #         bottom_wall = next(iter(orientation_to_walls["vertical"]))
-    #     else:
-    #         assert len(orientation_to_walls["vertical"]) == 2
-    #         bottom_wall = next(iter(orientation_to_walls["horizontal"]))
-    #     # Consider the angle between the bottom wall and the shelf center.
-    #     shelf_rect = rectangle_object_to_geom(state, shelf, static_object_cache)
-    #     shelf_x, shelf_y = shelf_rect.center
-    #     bottom_wall_rect = rectangle_object_to_geom(state, bottom_wall, static_object_cache)
-    #     bottom_wall_x, bottom_wall_y = bottom_wall_rect.center
-    #     angle = np.arctan2(shelf_y - bottom_wall_y, shelf_x - bottom_wall_x) - np.pi / 2
-    #     return SE2Pose(shelf_x, shelf_y, angle)
-
-    def _get_shelf_empty_side_center(state: State, shelf: Object) -> Tuple[float, float]:
+    def _get_shelf_empty_side_center(
+        state: State, shelf: Object
+    ) -> Tuple[float, float]:
         objs_on_top = _get_objects_on_object(state, shelf)
         walls = {o for o in objs_on_top if state.get(o, "static") > 0.5}
         assert len(walls) == 3
-        wall_rects = {rectangle_object_to_geom(state, w, static_object_cache) for w in walls}
+        wall_rects = {
+            rectangle_object_to_geom(state, w, static_object_cache) for w in walls
+        }
         example_wall_rect = next(iter(wall_rects))
         wall_thickness = min(example_wall_rect.height, example_wall_rect.width)
         pad = wall_thickness / 2
         shelf_rect = rectangle_object_to_geom(state, shelf, static_object_cache)
         height_scale = (shelf_rect.height - pad) / shelf_rect.height
         width_scale = (shelf_rect.width - pad) / shelf_rect.width
-        inner_shelf_rect = shelf_rect.scale_about_center(width_scale=width_scale, height_scale=height_scale)
-        for v1, v2 in zip(inner_shelf_rect.vertices, inner_shelf_rect.vertices[1:] + [inner_shelf_rect.vertices[0]]):
+        inner_shelf_rect = shelf_rect.scale_about_center(
+            width_scale=width_scale, height_scale=height_scale
+        )
+        for v1, v2 in zip(
+            inner_shelf_rect.vertices,
+            inner_shelf_rect.vertices[1:] + [inner_shelf_rect.vertices[0]],
+        ):
             cx = (v1[0] + v2[0]) / 2
             cy = (v1[1] + v2[1]) / 2
             contained_in_wall = False
@@ -101,20 +84,6 @@ def _create_predicates(
                 if wall_rect.contains_point(cx, cy):
                     contained_in_wall = True
                     break
-
-            # TODO remove
-            # if not contained_in_wall:
-            #     import matplotlib.pyplot as plt
-            #     from tomsutils.utils import fig2data
-            #     import imageio.v2 as iio
-            #     fig, ax = plt.subplots(1, 1, figsize=(10, 10))
-            #     shelf_rect.plot(ax, color="gray")
-            #     inner_shelf_rect.plot(ax, color="blue", alpha=0.25)
-            #     for wall_rect in wall_rects:
-            #         wall_rect.plot(ax, color="black", alpha=0.5)
-            #     ax.plot([cx], [cy], marker="o", markersize=30.0, color="red")
-            #     img = fig2data(fig)
-            #     iio.imsave(f"shelf_viz_{shelf.name}.png", img)
 
             if not contained_in_wall:
                 return (cx, cy)
@@ -174,12 +143,17 @@ def _create_predicates(
         empty_x, empty_y = _get_shelf_empty_side_center(state, shelf)
         front_rect = rectangle_object_to_geom(state, front_obj, static_object_cache)
         behind_rect = rectangle_object_to_geom(state, behind_obj, static_object_cache)
-        behind_to_empty = LineSegment(behind_rect.center[0], behind_rect.center[1],
-                                      empty_x, empty_y)
+        behind_to_empty = LineSegment(
+            behind_rect.center[0], behind_rect.center[1], empty_x, empty_y
+        )
         if not geom2ds_intersect(front_rect, behind_to_empty):
             return False
-        behind_to_front = LineSegment(behind_rect.center[0], behind_rect.center[1],
-                                      front_rect.center[0], front_rect.center[1])
+        behind_to_front = LineSegment(
+            behind_rect.center[0],
+            behind_rect.center[1],
+            front_rect.center[0],
+            front_rect.center[1],
+        )
         for other_obj in state.get_objects(RectangleType):
             if other_obj in {front_obj, behind_obj}:
                 continue
@@ -189,7 +163,6 @@ def _create_predicates(
             if geom2ds_intersect(other_rect, behind_to_front):
                 return False
         return True
-
 
     InFrontOnShelf = Predicate(
         "InFrontOnShelf",
@@ -404,7 +377,7 @@ def _ground_op_to_option(ground_op: GroundOperator, action_space: gym.Space) -> 
         param_option = create_rectangle_vaccum_pick_option(action_space)
         robot, target, _ = ground_op.parameters
         return param_option.ground([robot, target])
-    
+
     if ground_op.name == "PlaceInFront":
         param_option = create_rectangle_vaccum_table_place_option(action_space)
         robot, target, _, shelf = ground_op.parameters
@@ -414,7 +387,7 @@ def _ground_op_to_option(ground_op: GroundOperator, action_space: gym.Space) -> 
         param_option = create_rectangle_vaccum_table_place_option(action_space)
         robot, target, shelf = ground_op.parameters
         return param_option.ground([robot, target, shelf])
-    
+
     raise NotImplementedError
 
 
@@ -468,15 +441,12 @@ def _main() -> None:
         assert option.initiable(obs)
         for _ in range(100):
             action = option.policy(obs)
-            _, _, terminated, truncated, _ = env.step(action)
+            obs, _, terminated, truncated, _ = env.step(action)
             assert not terminated or truncated
             if option.terminal(obs):
                 break
         else:
-            # assert False, "Option did not terminate"
-            # TODO remove
-            print("FAILED!!!")
-            break
+            assert False, "Option did not terminate"
 
     env.close()
 
