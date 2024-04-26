@@ -157,6 +157,18 @@ def _robot_to_multibody2d(obj: Object, state: State) -> MultiBody2D:
     return MultiBody2D(obj.name, bodies)
 
 
+def rectangle_object_to_geom(
+    state: State, rect_obj: Object, static_object_cache: Dict[Object, MultiBody2D]
+) -> Rectangle:
+    """Helper to extract a rectangle for an object."""
+    assert rect_obj.is_instance(RectangleType)
+    multibody = object_to_multibody2d(rect_obj, state, static_object_cache)
+    assert len(multibody.bodies) == 1
+    geom = multibody.bodies[0].geom
+    assert isinstance(geom, Rectangle)
+    return geom
+
+
 def create_walls_from_world_boundaries(
     world_min_x: float,
     world_max_x: float,

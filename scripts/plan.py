@@ -1,4 +1,4 @@
-"""Plan and execute in the ThreeTableEnv()."""
+"""Plan and execute in the ThreeShelfEnv()."""
 
 import argparse
 from typing import Dict, Sequence, Set
@@ -27,6 +27,7 @@ from geom2drobotenvs.utils import (
     get_se2_pose,
     get_suctioned_objects,
     object_to_multibody2d,
+    rectangle_object_to_geom,
     z_orders_may_collide,
 )
 
@@ -36,62 +37,97 @@ def _create_predicates(
 ) -> Set[Predicate]:
     predicates: Set[Predicate] = set()
 
-    # Helper function.
-    def _get_table_reference_frame(state: State, table: Object) -> SE2Pose:
+    # Helper functions.
+    def _get_immovable_objects_on_object(state: State, obj: Object) -> Set[Object]:
+        immovable_objs: Set[Object] = set()
+        surface = rectangle_object_to_geom(state, obj, static_object_cache)
+        for other_obj in state.get_objects(RectangleType):
+            if other_obj == obj:
+                continue
+            if state.get(other_obj, "static") < 0.5:
+                continue
+            rect = rectangle_object_to_geom(state, other_obj, static_object_cache)
+            x, y = rect.center
+            if surface.contains_point(x, y):
+                immovable_objs.add(other_obj)
+        return immovable_objs
+
+    def _get_shelf_reference_frame(state: State, shelf: Object) -> SE2Pose:
         import ipdb
 
         ipdb.set_trace()
 
-    # OnTable.
-    def _on_table_holds(state: State, objs: Sequence[Object]) -> bool:
-        target, table = objs
-        return is_inside(state, target, table, static_object_cache)
+    # IsBlock.
+    def _is_block_holds(state: State, objs: Sequence[Object]) -> bool:
+        (block,) = objs
+        return is_movable_rectangle(state, block)
 
-    OnTable = Predicate("OnTable", [RectangleType, RectangleType], _on_table_holds)
-    predicates.add(OnTable)
+    IsBlock = Predicate("IsBlock", [RectangleType], _is_block_holds)
+    predicates.add(IsBlock)
 
-    # InFrontOnTable.
-    def _in_front_on_table(state: State, objs: Sequence[Object]) -> bool:
-        obj1, obj2, table = objs
-        world_to_table = _get_table_reference_frame(state, table)
+    # IsShelf.
+    def _is_shelf_holds(state: State, objs: Sequence[Object]) -> bool:
+        # This is very naive -- doesn't even check the pose or shape of the
+        # static objects, just assumes 3 static objects == is shelf.
+        (shelf,) = objs
+        static_objs = _get_immovable_objects_on_object(state, shelf)
+        return len(static_objs) == 3
+
+    IsShelf = Predicate("IsShelf", [RectangleType], _is_shelf_holds)
+    predicates.add(IsShelf)
+
+    # OnShelf.
+    def _on_shelf_holds(state: State, objs: Sequence[Object]) -> bool:
+        target, shelf = objs
+        return is_inside(state, target, shelf, static_object_cache)
+
+    OnShelf = Predicate("OnShelf", [RectangleType, RectangleType], _on_shelf_holds)
+    predicates.add(OnShelf)
+
+    # InFrontOnShelf.
+    def _in_front_on_shelf(state: State, objs: Sequence[Object]) -> bool:
+        obj1, obj2, shelf = objs
+        if not _is_shelf_holds(state, [shelf]):
+            return False
+        world_to_shelf = _get_shelf_reference_frame(state, shelf)
         world_to_obj1 = get_se2_pose(state, obj1)
         world_to_obj2 = get_se2_pose(state, obj2)
-        table_to_obj1 = world_to_table.inverse * world_to_obj1
-        table_to_obj2 = world_to_table.inverse * world_to_obj2
+        shelf_to_obj1 = world_to_shelf.inverse * world_to_obj1
+        shelf_to_obj2 = world_to_shelf.inverse * world_to_obj2
         import ipdb
 
         ipdb.set_trace()
 
-    InFrontOnTable = Predicate(
-        "InFrontOnTable",
+    InFrontOnShelf = Predicate(
+        "InFrontOnShelf",
         [RectangleType, RectangleType, RectangleType],
-        _in_front_on_table,
+        _in_front_on_shelf,
     )
-    predicates.add(InFrontOnTable)
+    predicates.add(InFrontOnShelf)
 
     # ClearToPick.
     def _clear_to_pick_holds(state: State, objs: Sequence[Object]) -> bool:
-        if not _on_table_holds(state, objs):
+        if not _on_shelf_holds(state, objs):
             return False
-        target, table = objs
+        target, shelf = objs
         if not is_movable_rectangle(state, target):
             return False
         # This is difficult to define in general... so we'll define it in a
-        # hacky way... draw a line from the object to each side of the table
+        # hacky way... draw a line from the object to each side of the shelf
         # that it's on. If that line doesn't intersect anything, we're clear.
-        table_mb = object_to_multibody2d(table, state, static_object_cache)
-        assert len(table_mb.bodies) == 1
-        table_rect = table_mb.bodies[0].geom
-        assert isinstance(table_rect, Rectangle)
+        shelf_mb = object_to_multibody2d(shelf, state, static_object_cache)
+        assert len(shelf_mb.bodies) == 1
+        shelf_rect = shelf_mb.bodies[0].geom
+        assert isinstance(shelf_rect, Rectangle)
         target_mb = object_to_multibody2d(target, state, static_object_cache)
         assert len(target_mb.bodies) == 1
         target_rect = target_mb.bodies[0].geom
         assert isinstance(target_rect, Rectangle)
         target_x, target_y = target_rect.center
         target_z_order = ZOrder(int(state.get(target, "z_order")))
-        obstacles = set(state) - {target, table}
+        obstacles = set(state) - {target, shelf}
         for (x1, y1), (x2, y2) in zip(
-            table_rect.vertices, table_rect.vertices[1:] + [table_rect.vertices[0]]
+            shelf_rect.vertices, shelf_rect.vertices[1:] + [shelf_rect.vertices[0]]
         ):
             side_x = (x1 + x2) / 2
             side_y = (y1 + y2) / 2
@@ -142,60 +178,125 @@ def _create_operators(predicates: Set[Predicate]) -> Set[LiftedOperator]:
     operators: Set[LiftedOperator] = set()
     pred_name_to_pred = {p.name: p for p in predicates}
 
-    OnTable = pred_name_to_pred["OnTable"]
+    IsBlock = pred_name_to_pred["IsBlock"]
+    IsShelf = pred_name_to_pred["IsShelf"]
+    OnShelf = pred_name_to_pred["OnShelf"]
     HandEmpty = pred_name_to_pred["HandEmpty"]
     ClearToPick = pred_name_to_pred["ClearToPick"]
     Holding = pred_name_to_pred["Holding"]
-    InFrontOnTable = pred_name_to_pred["InFrontOnTable"]
+    InFrontOnShelf = pred_name_to_pred["InFrontOnShelf"]
 
     # PickFromInFront.
     robot = CRVRobotType("?robot")
     target = RectangleType("?target")
     behind = RectangleType("?behind")
-    table = RectangleType("?table")
+    shelf = RectangleType("?shelf")
     preconditions = {
-        OnTable([target, table]),
-        ClearToPick([target, table]),
+        IsShelf([shelf]),
+        IsBlock([target]),
+        IsBlock([behind]),
+        OnShelf([target, shelf]),
+        ClearToPick([target, shelf]),
         HandEmpty([robot]),
-        InFrontOnTable([target, behind, table]),
+        InFrontOnShelf([target, behind, shelf]),
     }
     add_effects = {
         Holding([target, robot]),
-        ClearToPick([behind, table]),
+        ClearToPick([behind, shelf]),
     }
     delete_effects = {
-        OnTable([target, table]),
-        ClearToPick([target, table]),
+        OnShelf([target, shelf]),
+        ClearToPick([target, shelf]),
         HandEmpty([robot]),
     }
     PickFromInFront = LiftedOperator(
         "PickFromInFront",
-        [robot, target, table],
+        [robot, target, behind, shelf],
         preconditions,
         add_effects,
         delete_effects,
     )
     operators.add(PickFromInFront)
 
-    # Place.
+    # PickGeneric.
+    robot = CRVRobotType("?robot")
+    target = RectangleType("?target")
+    shelf = RectangleType("?shelf")
+    preconditions = {
+        IsShelf([shelf]),
+        IsBlock([target]),
+        OnShelf([target, shelf]),
+        ClearToPick([target, shelf]),
+        HandEmpty([robot]),
+    }
+    add_effects = {
+        Holding([target, robot]),
+    }
+    delete_effects = {
+        OnShelf([target, shelf]),
+        ClearToPick([target, shelf]),
+        HandEmpty([robot]),
+    }
+    PickGeneric = LiftedOperator(
+        "PickGeneric",
+        [robot, target, shelf],
+        preconditions,
+        add_effects,
+        delete_effects,
+    )
+    operators.add(PickGeneric)
+
+    # PlaceInFront.
     robot = CRVRobotType("?robot")
     held = RectangleType("?held")
-    table = RectangleType("?table")
+    behind = RectangleType("?behind")
+    shelf = RectangleType("?shelf")
     preconditions = {
+        IsBlock([held]),
+        IsShelf([shelf]),
+        Holding([held, robot]),
+        ClearToPick([behind, shelf]),
+    }
+    add_effects = {
+        OnShelf([held, shelf]),
+        ClearToPick([held, shelf]),
+        HandEmpty([robot]),
+        InFrontOnShelf([held, behind, shelf]),
+    }
+    delete_effects = {
+        Holding([held, robot]),
+        ClearToPick([behind, shelf]),
+    }
+    PlaceInFront = LiftedOperator(
+        "PlaceInFront",
+        [robot, held, behind, shelf],
+        preconditions,
+        add_effects,
+        delete_effects,
+    )
+    operators.add(PlaceInFront)
+
+    # PlaceGeneric.
+    robot = CRVRobotType("?robot")
+    held = RectangleType("?held")
+    shelf = RectangleType("?shelf")
+    preconditions = {
+        IsBlock([held]),
+        IsShelf([shelf]),
         Holding([held, robot]),
     }
     add_effects = {
-        OnTable([held, table]),
-        ClearToPick([held, table]),
+        OnShelf([held, shelf]),
+        ClearToPick([held, shelf]),
         HandEmpty([robot]),
     }
     delete_effects = {
         Holding([held, robot]),
     }
-    Place = LiftedOperator(
-        "Place", [robot, held, table], preconditions, add_effects, delete_effects
+    PlaceGeneric = LiftedOperator(
+        "PlaceGeneric", [robot, held, shelf], preconditions, add_effects, delete_effects
     )
-    operators.add(Place)
+    operators.add(PlaceGeneric)
 
     return operators
 
@@ -215,7 +316,7 @@ def _main() -> None:
     # Get the relevant objects.
     blocks = [o for o in obs if is_movable_rectangle(obs, o)]
     blocks = sorted(blocks, key=lambda b: obs.get(b, "width") * obs.get(b, "height"))
-    tables = [
+    shelfs = [
         o
         for o in obs
         if o.is_instance(RectangleType)
@@ -225,20 +326,20 @@ def _main() -> None:
     bx = obs.get(blocks[0], "x")
     by = obs.get(blocks[0], "y")
     dist = lambda t: (bx - obs.get(t, "x")) ** 2 + (by - obs.get(t, "y")) ** 2
-    table = max(tables, key=dist)
+    shelf = max(shelfs, key=dist)
 
     # Construct a PDDL domain and problem.
     static_object_cache: Dict[Object, MultiBody2D] = {}
     predicates = _create_predicates(static_object_cache)
     operators = _create_operators(predicates)
     types = {Geom2DType, CRVRobotType, RectangleType}
-    domain = PDDLDomain("three-tables", operators, predicates, types)
+    domain = PDDLDomain("three-shelfs", operators, predicates, types)
 
     objects = set(obs)
     init_atoms = abstract(obs, predicates)
     pred_name_to_pred = {p.name: p for p in predicates}
-    OnTable = pred_name_to_pred["OnTable"]
-    goal = {OnTable([block, table]) for block in blocks}
+    OnShelf = pred_name_to_pred["OnShelf"]
+    goal = {OnShelf([block, shelf]) for block in blocks}
     problem = PDDLProblem(domain.name, "problem0", objects, init_atoms, goal)
 
     action_strs = run_pddl_planner(str(domain), str(problem))

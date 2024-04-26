@@ -7,7 +7,7 @@ from tomsgeoms2d.structs import Rectangle
 
 from geom2drobotenvs.object_types import RectangleType
 from geom2drobotenvs.structs import MultiBody2D
-from geom2drobotenvs.utils import object_to_multibody2d
+from geom2drobotenvs.utils import object_to_multibody2d, rectangle_object_to_geom
 
 
 def is_inside(
@@ -20,14 +20,8 @@ def is_inside(
 
     Only rectangles are currently supported.
     """
-    inner_mb = object_to_multibody2d(inner, state, static_object_cache)
-    assert len(inner_mb.bodies) == 1
-    inner_geom = inner_mb.bodies[0].geom
-    assert isinstance(inner_geom, Rectangle)
-    outer_mb = object_to_multibody2d(outer, state, static_object_cache)
-    assert len(outer_mb.bodies) == 1
-    outer_geom = outer_mb.bodies[0].geom
-    assert isinstance(outer_geom, Rectangle)
+    inner_geom = rectangle_object_to_geom(state, inner, static_object_cache)
+    outer_geom = rectangle_object_to_geom(state, outer, static_object_cache)
     for x, y in inner_geom.vertices:
         if not outer_geom.contains_point(x, y):
             return False
