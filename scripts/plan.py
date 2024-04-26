@@ -12,8 +12,11 @@ from relational_structs import (
     PDDLProblem,
     Predicate,
     State,
+    GroundOperator,
+    Option,
+    ParameterizedOption,
 )
-from relational_structs.utils import abstract
+from relational_structs.utils import abstract, parse_pddl_plan
 from tomsgeoms2d.structs import LineSegment, Rectangle
 from tomsgeoms2d.utils import geom2ds_intersect
 from tomsutils.pddl_planning import run_pddl_planner
@@ -25,6 +28,7 @@ import geom2drobotenvs  # pylint: disable=unused-import
 from geom2drobotenvs.concepts import is_inside, is_movable_rectangle
 from geom2drobotenvs.object_types import CRVRobotType, Geom2DType, RectangleType
 from geom2drobotenvs.structs import MultiBody2D, SE2Pose, ZOrder
+from geom2drobotenvs.skills import create_rectangle_vaccum_pick_option, create_rectangle_vaccum_table_place_option
 from geom2drobotenvs.utils import (
     get_se2_pose,
     get_suctioned_objects,
@@ -390,6 +394,30 @@ def _create_operators(predicates: Set[Predicate]) -> Set[LiftedOperator]:
     return operators
 
 
+def _ground_op_to_option(ground_op: GroundOperator, action_space: gym.Space) -> Option:
+    if ground_op.name == "PickFromInFront":
+        param_option = create_rectangle_vaccum_pick_option(action_space)
+        robot, target, _, _ = ground_op.parameters
+        return param_option.ground([robot, target])
+
+    if ground_op.name == "PickGeneric":
+        param_option = create_rectangle_vaccum_pick_option(action_space)
+        robot, target, _ = ground_op.parameters
+        return param_option.ground([robot, target])
+    
+    if ground_op.name == "PlaceInFront":
+        param_option = create_rectangle_vaccum_table_place_option(action_space)
+        robot, target, _, shelf = ground_op.parameters
+        return param_option.ground([robot, target, shelf])
+
+    if ground_op.name == "PlaceGeneric":
+        param_option = create_rectangle_vaccum_table_place_option(action_space)
+        robot, target, shelf = ground_op.parameters
+        return param_option.ground([robot, target, shelf])
+    
+    raise NotImplementedError
+
+
 def _main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("env", type=str)
@@ -431,18 +459,20 @@ def _main() -> None:
     goal = {OnShelf([block, shelf]) for block in blocks}
     problem = PDDLProblem(domain.name, "problem0", objects, init_atoms, goal)
 
-    action_strs = run_pddl_planner(str(domain), str(problem))
-    assert action_strs is not None
-    import ipdb
+    ground_op_strs = run_pddl_planner(str(domain), str(problem))
+    ground_op_plan = parse_pddl_plan(ground_op_strs, domain, problem)
+    option_plan = [_ground_op_to_option(o, env.action_space) for o in ground_op_plan]
 
-    ipdb.set_trace()
+    for option in option_plan:
+        assert option.initiable(obs)
+        while True:
+            action = option.policy(obs)
+            action = env.action_space.sample()
+            _, _, terminated, truncated, _ = env.step(action)
+            assert not terminated or truncated
+            if option.terminal(obs):
+                break
 
-    for _ in range(args.steps):
-        action = env.action_space.sample()
-        _, _, terminated, truncated, _ = env.step(action)
-        if terminated or truncated:
-            print("WARNING: terminating early.")
-            break
     env.close()
 
 
