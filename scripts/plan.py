@@ -464,14 +464,20 @@ def _main() -> None:
     option_plan = [_ground_op_to_option(o, env.action_space) for o in ground_op_plan]
 
     for option in option_plan:
+        print("Starting option", option)
         assert option.initiable(obs)
-        while True:
+        for _ in range(100):
             action = option.policy(obs)
             action = env.action_space.sample()
             _, _, terminated, truncated, _ = env.step(action)
             assert not terminated or truncated
             if option.terminal(obs):
                 break
+        else:
+            # assert False, "Option did not terminate"
+            # TODO remove
+            print("FAILED!!!")
+            break
 
     env.close()
 
