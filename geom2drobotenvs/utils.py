@@ -246,6 +246,26 @@ def create_walls_from_world_boundaries(
     return state_dict
 
 
+def render_state_on_ax(
+    state: State,
+    ax: plt.Axes,
+    static_object_body_cache: Optional[Dict[Object, MultiBody2D]] = None,
+) -> None:
+    """Render a state on an existing plt.Axes."""
+    if static_object_body_cache is None:
+        static_object_body_cache = {}
+
+    # Sort objects by ascending z order, with the robot first.
+    def _render_order(obj: Object) -> int:
+        if obj.is_instance(CRVRobotType):
+            return -1
+        return int(state.get(obj, "z_order"))
+
+    for obj in sorted(state, key=_render_order):
+        body = object_to_multibody2d(obj, state, static_object_body_cache)
+        body.plot(ax)
+
+
 def render_state(
     state: State,
     static_object_body_cache: Optional[Dict[Object, MultiBody2D]] = None,
@@ -268,15 +288,7 @@ def render_state(
     )
     fig, ax = plt.subplots(1, 1, figsize=figsize, dpi=render_dpi)
 
-    # Sort objects by ascending z order, with the robot first.
-    def _render_order(obj: Object) -> int:
-        if obj.is_instance(CRVRobotType):
-            return -1
-        return int(state.get(obj, "z_order"))
-
-    for obj in sorted(state, key=_render_order):
-        body = object_to_multibody2d(obj, state, static_object_body_cache)
-        body.plot(ax)
+    render_state_on_ax(state, ax, static_object_body_cache)
 
     pad_x = (world_max_x - world_min_x) / 25
     pad_y = (world_max_y - world_min_y) / 25
@@ -420,12 +432,35 @@ def run_motion_planning_for_crv_robot(
         y_ub = max(y_ub, pose.y)
 
     # Create a static version of the state so that the geoms only need to be
-    # instantiated once during motion planning (except for the robot).
+    # instantiated once during motion planning (except for the robot). Make
+    # sure to not update the global cache because we don't want to carry over
+    # static things that are not actually static.
+    static_object_body_cache = static_object_body_cache.copy()
     static_state = state.copy()
     for o in static_state:
         if o.is_instance(CRVRobotType):
             continue
         static_state.set(o, "static", 1.0)
+
+    # Uncomment to visualize the scene.
+    # import matplotlib.pyplot as plt
+    # import imageio.v2 as iio
+    # fig, ax = plt.subplots(1, 1, figsize=(10, 10))
+    # render_state_on_ax(static_state, ax)
+    # goal_state = static_state.copy()
+    # goal_state.set(robot, "x", target_pose.x)
+    # goal_state.set(robot, "y", target_pose.y)
+    # goal_state.set(robot, "theta", target_pose.theta)
+    # goal_robot_mb = _robot_to_multibody2d(robot, goal_state)
+    # for body in goal_robot_mb.bodies:
+    #     body.rendering_kwargs["facecolor"] = "pink"
+    #     body.rendering_kwargs["alpha"] = 0.5
+    # goal_robot_mb.plot(ax)
+    # ax.set_xlim(-1, 11)
+    # ax.set_ylim(-1, 11)
+    # img = fig2data(fig)
+    # iio.imsave("/tmp/motion_planning_debug.png", img)
+    # import ipdb; ipdb.set_trace()
 
     # Set up the RRT methods.
     def sample_fn(_: SE2Pose) -> SE2Pose:

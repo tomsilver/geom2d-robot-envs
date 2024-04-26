@@ -116,11 +116,17 @@ def _create_predicates(
             return False
         if not _is_block_holds(state, [larger_block]):
             return False
-        smaller_area = state.get(smaller_block, "width") * state.get(smaller_block, "height")
-        larger_area = state.get(larger_block, "width") * state.get(larger_block, "height")
+        smaller_area = state.get(smaller_block, "width") * state.get(
+            smaller_block, "height"
+        )
+        larger_area = state.get(larger_block, "width") * state.get(
+            larger_block, "height"
+        )
         return smaller_area < larger_area
 
-    SmallerBlock = Predicate("SmallerBlock", [RectangleType, RectangleType], _smaller_block_holds)
+    SmallerBlock = Predicate(
+        "SmallerBlock", [RectangleType, RectangleType], _smaller_block_holds
+    )
     predicates.add(SmallerBlock)
 
     # OnShelf.
@@ -137,7 +143,7 @@ def _create_predicates(
 
     # ShelfIsEmpty.
     def _shelf_is_empty(state: State, objs: Sequence[Object]) -> bool:
-        shelf, = objs
+        (shelf,) = objs
         for obj in state:
             if _on_shelf_holds(state, [obj, shelf]):
                 return False
@@ -158,7 +164,9 @@ def _create_predicates(
                 return False
         return True
 
-    LastBlockOnShelf = Predicate("LastBlockOnShelf", [RectangleType, RectangleType], _last_block_on_shelf)
+    LastBlockOnShelf = Predicate(
+        "LastBlockOnShelf", [RectangleType, RectangleType], _last_block_on_shelf
+    )
     predicates.add(LastBlockOnShelf)
 
     # InFrontOnShelf.
@@ -341,7 +349,7 @@ def _create_operators(predicates: Set[Predicate]) -> Set[LiftedOperator]:
     }
     add_effects = {
         Holding([target, robot]),
-         ShelfIsEmpty([shelf]),
+        ShelfIsEmpty([shelf]),
     }
     delete_effects = {
         OnShelf([target, shelf]),
@@ -407,10 +415,14 @@ def _create_operators(predicates: Set[Predicate]) -> Set[LiftedOperator]:
     }
     delete_effects = {
         Holding([held, robot]),
-         ShelfIsEmpty([shelf]),
+        ShelfIsEmpty([shelf]),
     }
     PlaceEmptyShelf = LiftedOperator(
-        "PlaceEmptyShelf", [robot, held, shelf], preconditions, add_effects, delete_effects
+        "PlaceEmptyShelf",
+        [robot, held, shelf],
+        preconditions,
+        add_effects,
+        delete_effects,
     )
     operators.add(PlaceEmptyShelf)
 
@@ -488,18 +500,15 @@ def _main() -> None:
 
     for option in option_plan:
         print("Starting option", option)
-        try:
-            assert option.initiable(obs)
-            for _ in range(100):
-                action = option.policy(obs)
-                obs, _, terminated, truncated, _ = env.step(action)
-                assert not terminated or truncated
-                if option.terminal(obs):
-                    break
-            else:
-                assert False, "Option did not terminate"
-        except:  # TODO remove
-            break
+        assert option.initiable(obs)
+        for _ in range(100):
+            action = option.policy(obs)
+            obs, _, terminated, truncated, _ = env.step(action)
+            assert not terminated or truncated
+            if option.terminal(obs):
+                break
+        else:
+            assert False, "Option did not terminate"
 
     env.close()
 
