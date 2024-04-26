@@ -109,6 +109,20 @@ def _create_predicates(
     IsShelf = Predicate("IsShelf", [RectangleType], _is_shelf_holds)
     predicates.add(IsShelf)
 
+    # SmallerBlock.
+    def _smaller_block_holds(state: State, objs: Sequence[Object]) -> bool:
+        smaller_block, larger_block = objs
+        if not _is_block_holds(state, [smaller_block]):
+            return False
+        if not _is_block_holds(state, [larger_block]):
+            return False
+        smaller_area = state.get(smaller_block, "width") * state.get(smaller_block, "height")
+        larger_area = state.get(larger_block, "width") * state.get(larger_block, "height")
+        return smaller_area < larger_area
+
+    SmallerBlock = Predicate("SmallerBlock", [RectangleType, RectangleType], _smaller_block_holds)
+    predicates.add(SmallerBlock)
+
     # OnShelf.
     def _on_shelf_holds(state: State, objs: Sequence[Object]) -> bool:
         target, shelf = objs
@@ -120,6 +134,32 @@ def _create_predicates(
 
     OnShelf = Predicate("OnShelf", [RectangleType, RectangleType], _on_shelf_holds)
     predicates.add(OnShelf)
+
+    # ShelfIsEmpty.
+    def _shelf_is_empty(state: State, objs: Sequence[Object]) -> bool:
+        shelf, = objs
+        for obj in state:
+            if _on_shelf_holds(state, [obj, shelf]):
+                return False
+        return True
+
+    ShelfIsEmpty = Predicate("ShelfIsEmpty", [RectangleType], _shelf_is_empty)
+    predicates.add(ShelfIsEmpty)
+
+    # LastBlockOnShelf.
+    def _last_block_on_shelf(state: State, objs: Sequence[Object]) -> bool:
+        block, shelf = objs
+        if not _on_shelf_holds(state, objs):
+            return False
+        for other_block in objs:
+            if block == other_block:
+                continue
+            if _on_shelf_holds(state, [other_block, shelf]):
+                return False
+        return True
+
+    LastBlockOnShelf = Predicate("LastBlockOnShelf", [RectangleType, RectangleType], _last_block_on_shelf)
+    predicates.add(LastBlockOnShelf)
 
     # InFrontOnShelf.
     def _in_front_on_shelf(state: State, objs: Sequence[Object]) -> bool:
@@ -244,6 +284,7 @@ def _create_operators(predicates: Set[Predicate]) -> Set[LiftedOperator]:
     operators: Set[LiftedOperator] = set()
     pred_name_to_pred = {p.name: p for p in predicates}
 
+    SmallerBlock = pred_name_to_pred["SmallerBlock"]
     IsBlock = pred_name_to_pred["IsBlock"]
     IsShelf = pred_name_to_pred["IsShelf"]
     OnShelf = pred_name_to_pred["OnShelf"]
@@ -251,6 +292,8 @@ def _create_operators(predicates: Set[Predicate]) -> Set[LiftedOperator]:
     ClearToPick = pred_name_to_pred["ClearToPick"]
     Holding = pred_name_to_pred["Holding"]
     InFrontOnShelf = pred_name_to_pred["InFrontOnShelf"]
+    ShelfIsEmpty = pred_name_to_pred["ShelfIsEmpty"]
+    LastBlockOnShelf = pred_name_to_pred["LastBlockOnShelf"]
 
     # PickFromInFront.
     robot = CRVRobotType("?robot")
@@ -284,7 +327,7 @@ def _create_operators(predicates: Set[Predicate]) -> Set[LiftedOperator]:
     )
     operators.add(PickFromInFront)
 
-    # PickGeneric.
+    # PickToMakeEmpty.
     robot = CRVRobotType("?robot")
     target = RectangleType("?target")
     shelf = RectangleType("?shelf")
@@ -294,23 +337,26 @@ def _create_operators(predicates: Set[Predicate]) -> Set[LiftedOperator]:
         OnShelf([target, shelf]),
         ClearToPick([target, shelf]),
         HandEmpty([robot]),
+        LastBlockOnShelf([target, shelf]),
     }
     add_effects = {
         Holding([target, robot]),
+         ShelfIsEmpty([shelf]),
     }
     delete_effects = {
         OnShelf([target, shelf]),
         ClearToPick([target, shelf]),
         HandEmpty([robot]),
+        LastBlockOnShelf([target, shelf]),
     }
-    PickGeneric = LiftedOperator(
-        "PickGeneric",
+    PickToMakeEmpty = LiftedOperator(
+        "PickToMakeEmpty",
         [robot, target, shelf],
         preconditions,
         add_effects,
         delete_effects,
     )
-    operators.add(PickGeneric)
+    operators.add(PickToMakeEmpty)
 
     # PlaceInFront.
     robot = CRVRobotType("?robot")
@@ -322,6 +368,7 @@ def _create_operators(predicates: Set[Predicate]) -> Set[LiftedOperator]:
         IsShelf([shelf]),
         Holding([held, robot]),
         ClearToPick([behind, shelf]),
+        SmallerBlock([held, behind]),  # NOTE
     }
     add_effects = {
         OnShelf([held, shelf]),
@@ -342,7 +389,7 @@ def _create_operators(predicates: Set[Predicate]) -> Set[LiftedOperator]:
     )
     operators.add(PlaceInFront)
 
-    # PlaceGeneric.
+    # PlaceEmptyShelf.
     robot = CRVRobotType("?robot")
     held = RectangleType("?held")
     shelf = RectangleType("?shelf")
@@ -350,19 +397,22 @@ def _create_operators(predicates: Set[Predicate]) -> Set[LiftedOperator]:
         IsBlock([held]),
         IsShelf([shelf]),
         Holding([held, robot]),
+        ShelfIsEmpty([shelf]),
     }
     add_effects = {
         OnShelf([held, shelf]),
         ClearToPick([held, shelf]),
         HandEmpty([robot]),
+        LastBlockOnShelf([held, shelf]),
     }
     delete_effects = {
         Holding([held, robot]),
+         ShelfIsEmpty([shelf]),
     }
-    PlaceGeneric = LiftedOperator(
-        "PlaceGeneric", [robot, held, shelf], preconditions, add_effects, delete_effects
+    PlaceEmptyShelf = LiftedOperator(
+        "PlaceEmptyShelf", [robot, held, shelf], preconditions, add_effects, delete_effects
     )
-    operators.add(PlaceGeneric)
+    operators.add(PlaceEmptyShelf)
 
     return operators
 
@@ -373,7 +423,7 @@ def _ground_op_to_option(ground_op: GroundOperator, action_space: gym.Space) -> 
         robot, target, _, _ = ground_op.parameters
         return param_option.ground([robot, target])
 
-    if ground_op.name == "PickGeneric":
+    if ground_op.name == "PickToMakeEmpty":
         param_option = create_rectangle_vaccum_pick_option(action_space)
         robot, target, _ = ground_op.parameters
         return param_option.ground([robot, target])
@@ -383,7 +433,7 @@ def _ground_op_to_option(ground_op: GroundOperator, action_space: gym.Space) -> 
         robot, target, _, shelf = ground_op.parameters
         return param_option.ground([robot, target, shelf])
 
-    if ground_op.name == "PlaceGeneric":
+    if ground_op.name == "PlaceEmptyShelf":
         param_option = create_rectangle_vaccum_table_place_option(action_space)
         robot, target, shelf = ground_op.parameters
         return param_option.ground([robot, target, shelf])
@@ -438,15 +488,18 @@ def _main() -> None:
 
     for option in option_plan:
         print("Starting option", option)
-        assert option.initiable(obs)
-        for _ in range(100):
-            action = option.policy(obs)
-            obs, _, terminated, truncated, _ = env.step(action)
-            assert not terminated or truncated
-            if option.terminal(obs):
-                break
-        else:
-            assert False, "Option did not terminate"
+        try:
+            assert option.initiable(obs)
+            for _ in range(100):
+                action = option.policy(obs)
+                obs, _, terminated, truncated, _ = env.step(action)
+                assert not terminated or truncated
+                if option.terminal(obs):
+                    break
+            else:
+                assert False, "Option did not terminate"
+        except:  # TODO remove
+            break
 
     env.close()
 

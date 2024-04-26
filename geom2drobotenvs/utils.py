@@ -285,7 +285,7 @@ def render_state(
     ax.axis("off")
     plt.tight_layout()
     img = fig2data(fig)
-    plt.clf()
+    plt.close()
     return img
 
 
