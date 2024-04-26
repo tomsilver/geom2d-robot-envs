@@ -468,7 +468,6 @@ def _main() -> None:
         assert option.initiable(obs)
         for _ in range(100):
             action = option.policy(obs)
-            action = env.action_space.sample()
             _, _, terminated, truncated, _ = env.step(action)
             assert not terminated or truncated
             if option.terminal(obs):
