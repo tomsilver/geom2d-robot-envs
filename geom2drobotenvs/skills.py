@@ -20,6 +20,7 @@ from geom2drobotenvs.utils import (
     CRVRobotActionSpace,
     crv_pose_plan_to_action_plan,
     get_suctioned_objects,
+    rectangle_object_to_geom,
     run_motion_planning_for_crv_robot,
     snap_suctioned_objects,
     state_has_collision,
@@ -37,11 +38,12 @@ def _iter_motion_plans_to_rectangle(
     """Helper for picking and placing that generates motion plans to approach a
     rectangle from four possible sides."""
 
-    target_width = state.get(target, "width")
-    target_height = state.get(target, "height")
-    target_cx = state.get(target, "x") + target_width / 2
-    target_cy = state.get(target, "y") + target_height / 2
-    target_theta = state.get(target, "theta")
+    target_rect = rectangle_object_to_geom(state, target, static_object_body_cache)
+    target_width = target_rect.width
+    target_height = target_rect.height
+    target_cx = target_rect.center[0]
+    target_cy = target_rect.center[1]
+    target_theta = target_rect.theta
     world_to_target = SE2Pose(target_cx, target_cy, target_theta)
 
     # Try approaching the rectangle from each of four sides, while at the
@@ -194,11 +196,11 @@ def create_rectangle_vaccum_table_place_option(
         # collision is about to occur. If the held object is on the table,
         # return that plan. Otherwise, try the next of the four approaches.
         robot_base_radius = state.get(robot, "base_radius")
-        held_obj_max_size = max(
+        held_obj_thickness = min(
             state.get(held_obj, "width"), state.get(held_obj, "height")
         )
         pad = 0.25 * robot_base_radius
-        robot_to_target_side_dist = robot_base_radius + held_obj_max_size + pad
+        robot_to_target_side_dist = robot_base_radius + held_obj_thickness + pad
         for pose_plan in _iter_motion_plans_to_rectangle(
             state,
             robot,
