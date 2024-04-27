@@ -196,11 +196,11 @@ def create_rectangle_vaccum_table_place_option(
         # collision is about to occur. If the held object is on the table,
         # return that plan. Otherwise, try the next of the four approaches.
         robot_base_radius = state.get(robot, "base_radius")
-        held_obj_max_size = max(
+        held_obj_thickness = min(
             state.get(held_obj, "width"), state.get(held_obj, "height")
         )
         pad = 0.25 * robot_base_radius
-        robot_to_target_side_dist = robot_base_radius + held_obj_max_size + pad
+        robot_to_target_side_dist = robot_base_radius + held_obj_thickness + pad
         for pose_plan in _iter_motion_plans_to_rectangle(
             state,
             robot,
