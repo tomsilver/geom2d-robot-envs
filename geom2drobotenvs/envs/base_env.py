@@ -30,7 +30,7 @@ class Geom2DRobotEnv(gym.Env):
     # Only RGB rendering is implemented.
     render_mode = "rgb_array"
     metadata = {"render_modes": [render_mode]}
-    _render_dpi: int = 25
+    _render_dpi: int = 50
 
     # The world is oriented like a standard X/Y coordinate frame.
     # Subclasses may override.
