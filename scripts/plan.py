@@ -1,9 +1,10 @@
 """Plan and execute in the ThreeShelfEnv()."""
 
 import argparse
-from typing import Dict, Sequence, Set, Tuple
+from typing import Dict, Optional, Sequence, Set, Tuple
 
 import gym
+import numpy as np
 from gym.wrappers.record_video import RecordVideo
 from relational_structs import (
     GroundOperator,
@@ -109,65 +110,57 @@ def _create_predicates(
     IsShelf = Predicate("IsShelf", [RectangleType], _is_shelf_holds)
     predicates.add(IsShelf)
 
-    # SmallerBlock.
-    def _smaller_block_holds(state: State, objs: Sequence[Object]) -> bool:
-        smaller_block, larger_block = objs
-        if not _is_block_holds(state, [smaller_block]):
+    # IsBlockOrBackWall.
+    def _is_back_wall_holds(state: State, objs: Sequence[Object]) -> bool:
+        # The angle between the center of the wall and the empty side is near
+        # a multiple of pi / 2.
+        (wall,) = objs
+        if state.get(wall, "static") <= 0.5:
             return False
-        if not _is_block_holds(state, [larger_block]):
+        # Identify the shelf.
+        shelf: Optional[Object] = None
+        for obj in state.get_objects(RectangleType):
+            if not _is_shelf_holds(state, [obj]):
+                continue
+            if _on_shelf_holds(state, [wall, obj]):
+                shelf = obj
+                break
+        if shelf is None:
             return False
-        smaller_area = state.get(smaller_block, "width") * state.get(
-            smaller_block, "height"
-        )
-        larger_area = state.get(larger_block, "width") * state.get(
-            larger_block, "height"
-        )
+        empty_x, empty_y = _get_shelf_empty_side_center(state, shelf)
+        rect = rectangle_object_to_geom(state, wall, static_object_cache)
+        rect_cx, rect_cy = rect.center
+        angle = np.arctan2(empty_y - rect_cy, empty_x - rect_cx)
+        is_back_wall = abs(angle % (np.pi / 2)) < 1e-3
+        return is_back_wall
+
+    def _is_block_or_back_wall(state: State, objs: Sequence[Object]) -> bool:
+        return _is_block_holds(state, objs) or _is_back_wall_holds(state, objs)
+
+    IsBlockOrBackWall = Predicate(
+        "IsBlockOrBackWall", [RectangleType], _is_block_or_back_wall
+    )
+    predicates.add(IsBlockOrBackWall)
+
+    # Smaller.
+    def _smaller_holds(state: State, objs: Sequence[Object]) -> bool:
+        obj1, obj2 = objs
+        smaller_area = state.get(obj1, "width") * state.get(obj1, "height")
+        larger_area = state.get(obj2, "width") * state.get(obj2, "height")
         return smaller_area < larger_area
 
-    SmallerBlock = Predicate(
-        "SmallerBlock", [RectangleType, RectangleType], _smaller_block_holds
-    )
-    predicates.add(SmallerBlock)
+    Smaller = Predicate("Smaller", [RectangleType, RectangleType], _smaller_holds)
+    predicates.add(Smaller)
 
     # OnShelf.
     def _on_shelf_holds(state: State, objs: Sequence[Object]) -> bool:
         target, shelf = objs
-        if not _is_block_holds(state, [target]):
-            return False
         if not _is_shelf_holds(state, [shelf]):
             return False
         return is_inside(state, target, shelf, static_object_cache)
 
     OnShelf = Predicate("OnShelf", [RectangleType, RectangleType], _on_shelf_holds)
     predicates.add(OnShelf)
-
-    # ShelfIsEmpty.
-    def _shelf_is_empty(state: State, objs: Sequence[Object]) -> bool:
-        (shelf,) = objs
-        for obj in state:
-            if _on_shelf_holds(state, [obj, shelf]):
-                return False
-        return True
-
-    ShelfIsEmpty = Predicate("ShelfIsEmpty", [RectangleType], _shelf_is_empty)
-    predicates.add(ShelfIsEmpty)
-
-    # LastBlockOnShelf.
-    def _last_block_on_shelf(state: State, objs: Sequence[Object]) -> bool:
-        block, shelf = objs
-        if not _on_shelf_holds(state, objs):
-            return False
-        for other_block in objs:
-            if block == other_block:
-                continue
-            if _on_shelf_holds(state, [other_block, shelf]):
-                return False
-        return True
-
-    LastBlockOnShelf = Predicate(
-        "LastBlockOnShelf", [RectangleType, RectangleType], _last_block_on_shelf
-    )
-    predicates.add(LastBlockOnShelf)
 
     # InFrontOnShelf.
     def _in_front_on_shelf(state: State, objs: Sequence[Object]) -> bool:
@@ -179,10 +172,6 @@ def _create_predicates(
         if front_obj == behind_obj:
             return False
         if not _is_shelf_holds(state, [shelf]):
-            return False
-        if not _is_block_holds(state, [front_obj]):
-            return False
-        if not _is_block_holds(state, [behind_obj]):
             return False
         if not _on_shelf_holds(state, [front_obj, shelf]):
             return False
@@ -224,11 +213,10 @@ def _create_predicates(
         if not _on_shelf_holds(state, objs):
             return False
         target, shelf = objs
-        if not is_movable_rectangle(state, target):
+        if not _is_block_or_back_wall(state, [target]):
             return False
-        # This is difficult to define in general... so we'll define it in a
-        # hacky way... draw a line from the object to each side of the shelf
-        # that it's on. If that line doesn't intersect anything, we're clear.
+        # Draw a line from the target to the empty side of the shelf. If that
+        # line doesn't intersect anything, it's clear to pick.
         shelf_mb = object_to_multibody2d(shelf, state, static_object_cache)
         assert len(shelf_mb.bodies) == 1
         shelf_rect = shelf_mb.bodies[0].geom
@@ -240,28 +228,18 @@ def _create_predicates(
         target_x, target_y = target_rect.center
         target_z_order = ZOrder(int(state.get(target, "z_order")))
         obstacles = set(state) - {target, shelf}
-        for (x1, y1), (x2, y2) in zip(
-            shelf_rect.vertices, shelf_rect.vertices[1:] + [shelf_rect.vertices[0]]
-        ):
-            side_x = (x1 + x2) / 2
-            side_y = (y1 + y2) / 2
-            line_geom = LineSegment(target_x, target_y, side_x, side_y)
-            line_is_clear = True
-            for obstacle in obstacles:
-                if not line_is_clear:
-                    break
-                obstacle_multibody = object_to_multibody2d(
-                    obstacle, state, static_object_cache
-                )
-                for obstacle_body in obstacle_multibody.bodies:
-                    if not z_orders_may_collide(target_z_order, obstacle_body.z_order):
-                        continue
-                    if geom2ds_intersect(line_geom, obstacle_body.geom):
-                        line_is_clear = False
-                        break
-            if line_is_clear:
-                return True
-        return False
+        side_x, side_y = _get_shelf_empty_side_center(state, shelf)
+        line_geom = LineSegment(target_x, target_y, side_x, side_y)
+        for obstacle in obstacles:
+            obstacle_multibody = object_to_multibody2d(
+                obstacle, state, static_object_cache
+            )
+            for obstacle_body in obstacle_multibody.bodies:
+                if not z_orders_may_collide(target_z_order, obstacle_body.z_order):
+                    continue
+                if geom2ds_intersect(line_geom, obstacle_body.geom):
+                    return False
+        return True
 
     ClearToPick = Predicate(
         "ClearToPick", [RectangleType, RectangleType], _clear_to_pick_holds
@@ -292,18 +270,17 @@ def _create_operators(predicates: Set[Predicate]) -> Set[LiftedOperator]:
     operators: Set[LiftedOperator] = set()
     pred_name_to_pred = {p.name: p for p in predicates}
 
-    SmallerBlock = pred_name_to_pred["SmallerBlock"]
+    Smaller = pred_name_to_pred["Smaller"]
     IsBlock = pred_name_to_pred["IsBlock"]
     IsShelf = pred_name_to_pred["IsShelf"]
+    IsBlockOrBackWall = pred_name_to_pred["IsBlockOrBackWall"]
     OnShelf = pred_name_to_pred["OnShelf"]
     HandEmpty = pred_name_to_pred["HandEmpty"]
     ClearToPick = pred_name_to_pred["ClearToPick"]
     Holding = pred_name_to_pred["Holding"]
     InFrontOnShelf = pred_name_to_pred["InFrontOnShelf"]
-    ShelfIsEmpty = pred_name_to_pred["ShelfIsEmpty"]
-    LastBlockOnShelf = pred_name_to_pred["LastBlockOnShelf"]
 
-    # PickFromInFront.
+    # Pick.
     robot = CRVRobotType("?robot")
     target = RectangleType("?target")
     behind = RectangleType("?behind")
@@ -311,7 +288,7 @@ def _create_operators(predicates: Set[Predicate]) -> Set[LiftedOperator]:
     preconditions = {
         IsShelf([shelf]),
         IsBlock([target]),
-        IsBlock([behind]),
+        IsBlockOrBackWall([behind]),
         OnShelf([target, shelf]),
         ClearToPick([target, shelf]),
         HandEmpty([robot]),
@@ -325,48 +302,18 @@ def _create_operators(predicates: Set[Predicate]) -> Set[LiftedOperator]:
         OnShelf([target, shelf]),
         ClearToPick([target, shelf]),
         HandEmpty([robot]),
+        InFrontOnShelf([target, behind, shelf]),
     }
-    PickFromInFront = LiftedOperator(
-        "PickFromInFront",
+    Pick = LiftedOperator(
+        "Pick",
         [robot, target, behind, shelf],
         preconditions,
         add_effects,
         delete_effects,
     )
-    operators.add(PickFromInFront)
+    operators.add(Pick)
 
-    # PickToMakeEmpty.
-    robot = CRVRobotType("?robot")
-    target = RectangleType("?target")
-    shelf = RectangleType("?shelf")
-    preconditions = {
-        IsShelf([shelf]),
-        IsBlock([target]),
-        OnShelf([target, shelf]),
-        ClearToPick([target, shelf]),
-        HandEmpty([robot]),
-        LastBlockOnShelf([target, shelf]),
-    }
-    add_effects = {
-        Holding([target, robot]),
-        ShelfIsEmpty([shelf]),
-    }
-    delete_effects = {
-        OnShelf([target, shelf]),
-        ClearToPick([target, shelf]),
-        HandEmpty([robot]),
-        LastBlockOnShelf([target, shelf]),
-    }
-    PickToMakeEmpty = LiftedOperator(
-        "PickToMakeEmpty",
-        [robot, target, shelf],
-        preconditions,
-        add_effects,
-        delete_effects,
-    )
-    operators.add(PickToMakeEmpty)
-
-    # PlaceInFront.
+    # Place.
     robot = CRVRobotType("?robot")
     held = RectangleType("?held")
     behind = RectangleType("?behind")
@@ -375,8 +322,9 @@ def _create_operators(predicates: Set[Predicate]) -> Set[LiftedOperator]:
         IsBlock([held]),
         IsShelf([shelf]),
         Holding([held, robot]),
+        IsBlockOrBackWall([behind]),
         ClearToPick([behind, shelf]),
-        SmallerBlock([held, behind]),  # NOTE
+        Smaller([held, behind]),  # NOTE
     }
     add_effects = {
         OnShelf([held, shelf]),
@@ -388,66 +336,27 @@ def _create_operators(predicates: Set[Predicate]) -> Set[LiftedOperator]:
         Holding([held, robot]),
         ClearToPick([behind, shelf]),
     }
-    PlaceInFront = LiftedOperator(
-        "PlaceInFront",
+    Place = LiftedOperator(
+        "Place",
         [robot, held, behind, shelf],
         preconditions,
         add_effects,
         delete_effects,
     )
-    operators.add(PlaceInFront)
-
-    # PlaceEmptyShelf.
-    robot = CRVRobotType("?robot")
-    held = RectangleType("?held")
-    shelf = RectangleType("?shelf")
-    preconditions = {
-        IsBlock([held]),
-        IsShelf([shelf]),
-        Holding([held, robot]),
-        ShelfIsEmpty([shelf]),
-    }
-    add_effects = {
-        OnShelf([held, shelf]),
-        ClearToPick([held, shelf]),
-        HandEmpty([robot]),
-        LastBlockOnShelf([held, shelf]),
-    }
-    delete_effects = {
-        Holding([held, robot]),
-        ShelfIsEmpty([shelf]),
-    }
-    PlaceEmptyShelf = LiftedOperator(
-        "PlaceEmptyShelf",
-        [robot, held, shelf],
-        preconditions,
-        add_effects,
-        delete_effects,
-    )
-    operators.add(PlaceEmptyShelf)
+    operators.add(Place)
 
     return operators
 
 
 def _ground_op_to_option(ground_op: GroundOperator, action_space: gym.Space) -> Option:
-    if ground_op.name == "PickFromInFront":
+    if ground_op.name == "Pick":
         param_option = create_rectangle_vaccum_pick_option(action_space)
         robot, target, _, _ = ground_op.parameters
         return param_option.ground([robot, target])
 
-    if ground_op.name == "PickToMakeEmpty":
-        param_option = create_rectangle_vaccum_pick_option(action_space)
-        robot, target, _ = ground_op.parameters
-        return param_option.ground([robot, target])
-
-    if ground_op.name == "PlaceInFront":
+    if ground_op.name == "Place":
         param_option = create_rectangle_vaccum_table_place_option(action_space)
         robot, target, _, shelf = ground_op.parameters
-        return param_option.ground([robot, target, shelf])
-
-    if ground_op.name == "PlaceEmptyShelf":
-        param_option = create_rectangle_vaccum_table_place_option(action_space)
-        robot, target, shelf = ground_op.parameters
         return param_option.ground([robot, target, shelf])
 
     raise NotImplementedError
@@ -494,8 +403,13 @@ def _main() -> None:
     goal = {OnShelf([block, shelf]) for block in blocks}
     problem = PDDLProblem(domain.name, "problem0", objects, init_atoms, goal)
 
-    ground_op_strs = run_pddl_planner(str(domain), str(problem))
+    print("Running planning...")
+    ground_op_strs = run_pddl_planner(str(domain), str(problem), planner="fd-opt")
     ground_op_plan = parse_pddl_plan(ground_op_strs, domain, problem)
+    print("Found plan!")
+    for op in ground_op_plan:
+        print(op.short_str)
+    print()
     option_plan = [_ground_op_to_option(o, env.action_space) for o in ground_op_plan]
 
     for option in option_plan:

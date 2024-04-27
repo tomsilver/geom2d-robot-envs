@@ -19,7 +19,7 @@ class ThreeTableEnv(Geom2DRobotEnv):
     """Environment with blocks on three tables."""
 
     _robot_base_radius: ClassVar[float] = 0.4
-    _num_blocks: ClassVar[int] = 6
+    _num_blocks: ClassVar[int] = 4
 
     def _sample_initial_state(self) -> State:
         # Currently nothing is randomized; this will change in the future.
