@@ -30,7 +30,10 @@ develop = [
 ]
 
 [tool.setuptools.packages.find]
-exclude = ["tests*"]
+where = ["src"]
+
+[tool.setuptools.package-data]
+geom2drobotenvs = ["py.typed"]
 
 [tool.black]
 line-length = 88
