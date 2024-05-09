@@ -2,7 +2,7 @@
 
 from typing import Dict
 
-from relational_structs import Object, State
+from relational_structs import Object, ObjectCentricState
 
 from geom2drobotenvs.object_types import RectangleType
 from geom2drobotenvs.structs import MultiBody2D
@@ -10,7 +10,7 @@ from geom2drobotenvs.utils import rectangle_object_to_geom
 
 
 def is_inside(
-    state: State,
+    state: ObjectCentricState,
     inner: Object,
     outer: Object,
     static_object_cache: Dict[Object, MultiBody2D],
@@ -27,6 +27,6 @@ def is_inside(
     return True
 
 
-def is_movable_rectangle(state: State, obj: Object) -> bool:
+def is_movable_rectangle(state: ObjectCentricState, obj: Object) -> bool:
     """Checks if an object is a movable rectangle."""
     return obj.is_instance(RectangleType) and state.get(obj, "static") < 0.5

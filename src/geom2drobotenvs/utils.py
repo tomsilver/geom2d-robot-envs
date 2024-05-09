@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from gym.spaces import Box
 from numpy.typing import NDArray
-from relational_structs import Array, Object, State
+from relational_structs import Array, Object, ObjectCentricState
 from tomsgeoms2d.structs import Circle, Rectangle
 from tomsgeoms2d.utils import geom2ds_intersect
 from tomsutils.motion_planning import BiRRT
@@ -48,7 +48,9 @@ class CRVRobotActionSpace(Box):
 
 
 def object_to_multibody2d(
-    obj: Object, state: State, static_object_cache: Dict[Object, MultiBody2D]
+    obj: Object,
+    state: ObjectCentricState,
+    static_object_cache: Dict[Object, MultiBody2D],
 ) -> MultiBody2D:
     """Create a Body2D instance for objects of standard geom types."""
     if obj.is_instance(CRVRobotType):
@@ -82,7 +84,7 @@ def object_to_multibody2d(
     return multibody
 
 
-def _robot_to_multibody2d(obj: Object, state: State) -> MultiBody2D:
+def _robot_to_multibody2d(obj: Object, state: ObjectCentricState) -> MultiBody2D:
     """Helper for object_to_multibody2d()."""
     assert obj.is_instance(CRVRobotType)
     bodies: List[Body2D] = []
@@ -158,7 +160,9 @@ def _robot_to_multibody2d(obj: Object, state: State) -> MultiBody2D:
 
 
 def rectangle_object_to_geom(
-    state: State, rect_obj: Object, static_object_cache: Dict[Object, MultiBody2D]
+    state: ObjectCentricState,
+    rect_obj: Object,
+    static_object_cache: Dict[Object, MultiBody2D],
 ) -> Rectangle:
     """Helper to extract a rectangle for an object."""
     assert rect_obj.is_instance(RectangleType)
@@ -247,7 +251,7 @@ def create_walls_from_world_boundaries(
 
 
 def render_state_on_ax(
-    state: State,
+    state: ObjectCentricState,
     ax: plt.Axes,
     static_object_body_cache: Optional[Dict[Object, MultiBody2D]] = None,
 ) -> None:
@@ -267,7 +271,7 @@ def render_state_on_ax(
 
 
 def render_state(
-    state: State,
+    state: ObjectCentricState,
     static_object_body_cache: Optional[Dict[Object, MultiBody2D]] = None,
     world_min_x: float = 0.0,
     world_max_x: float = 10.0,
@@ -302,7 +306,7 @@ def render_state(
 
 
 def state_has_collision(
-    state: State, static_object_cache: Dict[Object, MultiBody2D]
+    state: ObjectCentricState, static_object_cache: Dict[Object, MultiBody2D]
 ) -> bool:
     """Check if a robot or held object has a collision with another object."""
     obj_to_multibody = {
@@ -328,7 +332,9 @@ def state_has_collision(
     return False
 
 
-def get_tool_tip_position(state: State, robot: Object) -> Tuple[float, float]:
+def get_tool_tip_position(
+    state: ObjectCentricState, robot: Object
+) -> Tuple[float, float]:
     """Get the tip of the tool for the robot, which is defined as the center of
     the bottom edge of the gripper."""
     multibody = _robot_to_multibody2d(robot, state)
@@ -349,7 +355,7 @@ def get_tool_tip_position(state: State, robot: Object) -> Tuple[float, float]:
     return (tool_tip[0], tool_tip[1])
 
 
-def get_se2_pose(state: State, obj: Object) -> SE2Pose:
+def get_se2_pose(state: ObjectCentricState, obj: Object) -> SE2Pose:
     """Get the SE2Pose of an object in a given state."""
     return SE2Pose(
         x=state.get(obj, "x"),
@@ -358,14 +364,18 @@ def get_se2_pose(state: State, obj: Object) -> SE2Pose:
     )
 
 
-def get_relative_se2_transform(state: State, obj1: Object, obj2: Object) -> SE2Pose:
+def get_relative_se2_transform(
+    state: ObjectCentricState, obj1: Object, obj2: Object
+) -> SE2Pose:
     """Get the pose of obj2 in the frame of obj1."""
     world_to_obj1 = get_se2_pose(state, obj1)
     world_to_obj2 = get_se2_pose(state, obj2)
     return world_to_obj1.inverse * world_to_obj2
 
 
-def get_suctioned_objects(state: State, robot: Object) -> List[Tuple[Object, SE2Pose]]:
+def get_suctioned_objects(
+    state: ObjectCentricState, robot: Object
+) -> List[Tuple[Object, SE2Pose]]:
     """Find objects that are in the suction zone of a CRVRobot and return the
     associated transform from gripper tool tip to suctioned object."""
     # If the robot's vacuum is not on, there are no suctioned objects.
@@ -392,7 +402,9 @@ def get_suctioned_objects(state: State, robot: Object) -> List[Tuple[Object, SE2
 
 
 def snap_suctioned_objects(
-    state: State, robot: Object, suctioned_objs: List[Tuple[Object, SE2Pose]]
+    state: ObjectCentricState,
+    robot: Object,
+    suctioned_objs: List[Tuple[Object, SE2Pose]],
 ) -> None:
     """Updates the state in-place."""
     gripper_x, gripper_y = get_tool_tip_position(state, robot)
@@ -406,7 +418,7 @@ def snap_suctioned_objects(
 
 
 def run_motion_planning_for_crv_robot(
-    state: State,
+    state: ObjectCentricState,
     robot: Object,
     target_pose: SE2Pose,
     action_space: CRVRobotActionSpace,

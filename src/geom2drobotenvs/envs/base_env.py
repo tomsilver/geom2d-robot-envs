@@ -6,7 +6,12 @@ from typing import ClassVar, Dict, Optional, Tuple
 import gym
 import numpy as np
 from numpy.typing import NDArray
-from relational_structs import Array, Object, ObjectCentricStateSpace, State
+from relational_structs import (
+    Array,
+    Object,
+    ObjectCentricState,
+    ObjectCentricStateSpace,
+)
 from tomsutils.utils import wrap_angle
 
 from geom2drobotenvs.object_types import CRVRobotType, RectangleType
@@ -45,16 +50,16 @@ class Geom2DRobotEnv(gym.Env):
         self.action_space = CRVRobotActionSpace()
 
         # Initialized by reset().
-        self._current_state: Optional[State] = None
+        self._current_state: Optional[ObjectCentricState] = None
         self._static_object_body_cache: Dict[Object, MultiBody2D] = {}
 
         super().__init__()
 
     @abc.abstractmethod
-    def _sample_initial_state(self) -> State:
+    def _sample_initial_state(self) -> ObjectCentricState:
         """Use self.np_random to sample an initial state."""
 
-    def _get_obs(self) -> State:
+    def _get_obs(self) -> ObjectCentricState:
         assert self._current_state is not None, "Need to call reset()"
         return self._current_state.copy()
 
@@ -63,7 +68,7 @@ class Geom2DRobotEnv(gym.Env):
 
     def reset(
         self, *, seed: Optional[int] = None, options: Optional[Dict] = None
-    ) -> Tuple[State, Dict]:
+    ) -> Tuple[ObjectCentricState, Dict]:
         super().reset(seed=seed)
 
         # Need to flush the cache in case static objects move.
@@ -82,7 +87,7 @@ class Geom2DRobotEnv(gym.Env):
 
         return observation, info
 
-    def step(self, action: Array) -> Tuple[State, float, bool, bool, Dict]:
+    def step(self, action: Array) -> Tuple[ObjectCentricState, float, bool, bool, Dict]:
         assert self.action_space.contains(action)
         dx, dy, dtheta, darm, vac = action
         assert self._current_state is not None, "Need to call reset()"

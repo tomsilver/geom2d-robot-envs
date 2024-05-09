@@ -7,10 +7,10 @@ from gym.spaces import Space
 from relational_structs import (
     Action,
     Object,
+    ObjectCentricState,
     ObjectSequenceSpace,
     OptionMemory,
     ParameterizedOption,
-    State,
 )
 
 from geom2drobotenvs.concepts import is_inside
@@ -28,7 +28,7 @@ from geom2drobotenvs.utils import (
 
 
 def _iter_motion_plans_to_rectangle(
-    state: State,
+    state: ObjectCentricState,
     robot: Object,
     target: Object,
     action_space: Space,
@@ -83,7 +83,9 @@ def create_rectangle_vaccum_pick_option(action_space: Space) -> ParameterizedOpt
     params_space = ObjectSequenceSpace([CRVRobotType, RectangleType])
     assert isinstance(action_space, CRVRobotActionSpace)
 
-    def _policy(state: State, params: Sequence[Object], memory: OptionMemory) -> Action:
+    def _policy(
+        state: ObjectCentricState, params: Sequence[Object], memory: OptionMemory
+    ) -> Action:
         robot, target = params
 
         # If the target is grasped, retract right away.
@@ -112,7 +114,7 @@ def create_rectangle_vaccum_pick_option(action_space: Space) -> ParameterizedOpt
         return memory["move_plan"].pop(0)
 
     def _initiable(
-        state: State, params: Sequence[Object], memory: OptionMemory
+        state: ObjectCentricState, params: Sequence[Object], memory: OptionMemory
     ) -> bool:
         robot, target = params
 
@@ -150,7 +152,9 @@ def create_rectangle_vaccum_pick_option(action_space: Space) -> ParameterizedOpt
         # All approach angles failed.
         return False
 
-    def _terminal(state: State, params: Sequence[Object], memory: OptionMemory) -> bool:
+    def _terminal(
+        state: ObjectCentricState, params: Sequence[Object], memory: OptionMemory
+    ) -> bool:
         robot, target = params
         robot_radius = state.get(robot, "base_radius")
         arm_joint = state.get(robot, "arm_joint")
@@ -178,13 +182,15 @@ def create_rectangle_vaccum_table_place_option(
     params_space = ObjectSequenceSpace([CRVRobotType, RectangleType, RectangleType])
     assert isinstance(action_space, CRVRobotActionSpace)
 
-    def _policy(state: State, params: Sequence[Object], memory: OptionMemory) -> Action:
+    def _policy(
+        state: ObjectCentricState, params: Sequence[Object], memory: OptionMemory
+    ) -> Action:
         # This policy is completely open-loop.
         del state, params  # unused
         return memory["action_plan"].pop(0)
 
     def _initiable(
-        state: State, params: Sequence[Object], memory: OptionMemory
+        state: ObjectCentricState, params: Sequence[Object], memory: OptionMemory
     ) -> bool:
         robot, held_obj, table = params
 
@@ -261,7 +267,9 @@ def create_rectangle_vaccum_table_place_option(
         # All approach angles failed.
         return False
 
-    def _terminal(state: State, params: Sequence[Object], memory: OptionMemory) -> bool:
+    def _terminal(
+        state: ObjectCentricState, params: Sequence[Object], memory: OptionMemory
+    ) -> bool:
         del state, params
         return not memory["action_plan"]
 

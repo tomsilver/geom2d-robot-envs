@@ -1,6 +1,6 @@
 """Tests for skills.py."""
 
-from relational_structs import State
+from relational_structs import ObjectCentricState
 
 from geom2drobotenvs.concepts import is_inside
 from geom2drobotenvs.envs.three_table_env import ThreeTableEnv
@@ -24,7 +24,7 @@ def test_crv_pick_and_place():
     place = create_rectangle_vaccum_table_place_option(env.action_space)
 
     obs, _ = env.reset()
-    assert isinstance(obs, State)
+    assert isinstance(obs, ObjectCentricState)
 
     # Get the objects.
     robot = obs.get_objects(CRVRobotType)[0]
