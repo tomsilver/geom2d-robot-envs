@@ -3,11 +3,15 @@
 from typing import ClassVar, Dict
 
 import numpy as np
-from relational_structs import Object, State
+from relational_structs import Object, ObjectCentricState
 from relational_structs.utils import create_state_from_dict
 
 from geom2drobotenvs.envs.base_env import Geom2DRobotEnv
-from geom2drobotenvs.object_types import CRVRobotType, RectangleType
+from geom2drobotenvs.object_types import (
+    CRVRobotType,
+    Geom2DRobotEnvTypeFeatures,
+    RectangleType,
+)
 from geom2drobotenvs.structs import ZOrder
 from geom2drobotenvs.utils import (
     CRVRobotActionSpace,
@@ -21,7 +25,7 @@ class ThreeTableEnv(Geom2DRobotEnv):
     _robot_base_radius: ClassVar[float] = 0.4
     _num_blocks: ClassVar[int] = 7
 
-    def _sample_initial_state(self) -> State:
+    def _sample_initial_state(self) -> ObjectCentricState:
         # Currently nothing is randomized; this will change in the future.
         init_state_dict: Dict[Object, Dict[str, float]] = {}
 
@@ -228,4 +232,4 @@ class ThreeTableEnv(Geom2DRobotEnv):
         )
         init_state_dict.update(wall_state_dict)
         # Finalize state.
-        return create_state_from_dict(init_state_dict)
+        return create_state_from_dict(init_state_dict, Geom2DRobotEnvTypeFeatures)

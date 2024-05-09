@@ -3,11 +3,15 @@
 from typing import Dict, Tuple
 
 import numpy as np
-from relational_structs import Object, ObjectCentricStateSpace, State
+from relational_structs import Object, ObjectCentricState, ObjectCentricStateSpace
 from relational_structs.utils import create_state_from_dict
 
 from geom2drobotenvs.envs.three_table_env import ThreeTableEnv
-from geom2drobotenvs.object_types import CRVRobotType, RectangleType
+from geom2drobotenvs.object_types import (
+    CRVRobotType,
+    Geom2DRobotEnvTypeFeatures,
+    RectangleType,
+)
 from geom2drobotenvs.structs import ZOrder
 from geom2drobotenvs.utils import (
     CRVRobotActionSpace,
@@ -24,7 +28,7 @@ def test_three_table_env():
     assert env.observation_space.types == {CRVRobotType, RectangleType}
     assert env.action_space.shape == (5,)
     obs, _ = env.reset(seed=123)
-    assert isinstance(obs, State)
+    assert isinstance(obs, ObjectCentricState)
 
 
 def _get_world_boundaries(env: ThreeTableEnv) -> Tuple[float, float, float, float]:
@@ -79,9 +83,9 @@ def test_three_table_robot_moves():
 
     # Reset the state.
     init_state_dict = _create_common_state_dict(env.unwrapped)
-    init_state = create_state_from_dict(init_state_dict)
+    init_state = create_state_from_dict(init_state_dict, Geom2DRobotEnvTypeFeatures)
     obs, _ = env.reset(seed=123, options={"init_state": init_state})
-    assert isinstance(obs, State)
+    assert isinstance(obs, ObjectCentricState)
     robot = obs.get_objects(CRVRobotType)[0]
     assert np.isclose(obs.get(robot, "theta"), 0.0)  # sanity check
 
@@ -94,7 +98,7 @@ def test_three_table_robot_moves():
         obs, _, _, _, _ = env.step(right_action)
 
     # Assert that we didn't go off screen.
-    assert isinstance(obs, State)
+    assert isinstance(obs, ObjectCentricState)
     robot = obs.get_objects(CRVRobotType)[0]
     assert obs.get(robot, "x") < world_max_x
 
@@ -158,7 +162,7 @@ def test_three_table_robot_table_collisions():
         "z_order": ZOrder.FLOOR.value,
     }
 
-    init_state = create_state_from_dict(init_state_dict)
+    init_state = create_state_from_dict(init_state_dict, Geom2DRobotEnvTypeFeatures)
     obs, _ = env.reset(seed=123, options={"init_state": init_state})
 
     # First extend the arm all the way out.
@@ -175,7 +179,7 @@ def test_three_table_robot_table_collisions():
 
     # The robot base should be to the left of the table, but the robot gripper
     # should be to the right of it.
-    assert isinstance(obs, State)
+    assert isinstance(obs, ObjectCentricState)
     robot = obs.get_objects(CRVRobotType)[0]
     multibody = object_to_multibody2d(robot, obs, {})
     base = multibody.get_body("base").geom
@@ -243,7 +247,7 @@ def test_three_table_vacuum():
         "z_order": ZOrder.SURFACE.value,  # block is on the table surface
     }
 
-    init_state = create_state_from_dict(init_state_dict)
+    init_state = create_state_from_dict(init_state_dict, Geom2DRobotEnvTypeFeatures)
     obs, _ = env.reset(seed=123, options={"init_state": init_state})
 
     # First extend the arm all the way out and turn on the vacuum.
@@ -254,7 +258,7 @@ def test_three_table_vacuum():
         obs, _, _, _, _ = env.step(arm_action)
 
     # Move to the object that we want to reach.
-    assert isinstance(obs, State)
+    assert isinstance(obs, ObjectCentricState)
     robot = obs.get_objects(CRVRobotType)[0]
     block_x = obs.get(block, "x")
     max_dx = env.action_space.high[0]
