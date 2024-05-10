@@ -14,7 +14,7 @@ from geom2drobotenvs.structs import ZOrder
 
 def test_crv_pick_and_place():
     """Tests for pick and place skills with the CRV robot."""
-    env = ThreeTableEnv()
+    env = ThreeTableEnv(num_blocks=4)
 
     # Uncomment to record videos.
     # from gym.wrappers.record_video import RecordVideo
