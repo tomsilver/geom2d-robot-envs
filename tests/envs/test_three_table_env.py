@@ -2,6 +2,7 @@
 
 from typing import Dict, Tuple
 
+import gym
 import numpy as np
 from relational_structs import Object, ObjectCentricState, ObjectCentricStateSpace
 from relational_structs.utils import create_state_from_dict
@@ -73,7 +74,7 @@ def _create_common_state_dict(env: ThreeTableEnv) -> Dict[Object, Dict[str, floa
 
 def test_three_table_robot_moves():
     """Test basic movements of the robot in ThreeTableEnv()."""
-    env = ThreeTableEnv()
+    env = gym.make("geom2drobotenvs/ThreeTables-v0", num_blocks=5)
 
     # Uncomment to record videos.
     # from gym.wrappers.record_video import RecordVideo
