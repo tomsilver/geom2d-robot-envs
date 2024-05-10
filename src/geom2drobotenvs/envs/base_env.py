@@ -3,7 +3,7 @@
 import abc
 from typing import ClassVar, Dict, Optional, Tuple
 
-import gym
+import gymnasium as gym
 import numpy as np
 from numpy.typing import NDArray
 from relational_structs import (

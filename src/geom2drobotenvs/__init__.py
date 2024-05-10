@@ -1,6 +1,6 @@
 """Register environments for use with gym.make()."""
 
-from gym.envs.registration import register
+from gymnasium.envs.registration import register
 
 register(
     id="geom2drobotenvs/ThreeTables-v0",
