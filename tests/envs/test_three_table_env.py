@@ -2,7 +2,7 @@
 
 from typing import Dict, Tuple
 
-import gym
+import gymnasium as gym
 import numpy as np
 from relational_structs import Object, ObjectCentricState, ObjectCentricStateSpace
 from relational_structs.utils import create_state_from_dict
@@ -77,7 +77,7 @@ def test_three_table_robot_moves():
     env = gym.make("geom2drobotenvs/ThreeTables-v0", num_blocks=5)
 
     # Uncomment to record videos.
-    # from gym.wrappers.record_video import RecordVideo
+    # from gymnasium.wrappers.record_video import RecordVideo
     # env = RecordVideo(env, "unit_test_videos")
 
     world_min_x, _, world_max_x, world_max_y = _get_world_boundaries(env.unwrapped)
@@ -134,7 +134,7 @@ def test_three_table_robot_table_collisions():
     env = ThreeTableEnv()
 
     # Uncomment to record videos.
-    # from gym.wrappers.record_video import RecordVideo
+    # from gymnasium.wrappers.record_video import RecordVideo
     # env = RecordVideo(env, "unit_test_videos")
 
     # Reset the state.
@@ -197,7 +197,7 @@ def test_three_table_vacuum():
     env = ThreeTableEnv()
 
     # Uncomment to record videos.
-    # from gym.wrappers.record_video import RecordVideo
+    # from gymnasium.wrappers.record_video import RecordVideo
     # env = RecordVideo(env, "unit_test_videos")
 
     assert isinstance(env.action_space, CRVRobotActionSpace)

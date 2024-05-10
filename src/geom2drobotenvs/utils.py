@@ -4,7 +4,7 @@ from typing import Dict, Iterable, List, Optional, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
-from gym.spaces import Box
+from gymnasium.spaces import Box
 from numpy.typing import NDArray
 from relational_structs import Array, Object, ObjectCentricState
 from tomsgeoms2d.structs import Circle, Rectangle

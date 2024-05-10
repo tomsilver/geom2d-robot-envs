@@ -17,7 +17,7 @@ def test_crv_pick_and_place():
     env = ThreeTableEnv(num_blocks=4)
 
     # Uncomment to record videos.
-    # from gym.wrappers.record_video import RecordVideo
+    # from gymnasium.wrappers.record_video import RecordVideo
     # env = RecordVideo(env, "unit_test_videos")
 
     pick = create_rectangle_vaccum_pick_option(env.action_space)

@@ -3,7 +3,7 @@
 from typing import Dict, Iterator, List, Sequence
 
 import numpy as np
-from gym.spaces import Space
+from gymnasium.spaces import Space
 from relational_structs import (
     Action,
     Object,
