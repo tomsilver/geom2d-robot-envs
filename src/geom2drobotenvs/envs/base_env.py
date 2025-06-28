@@ -1,7 +1,7 @@
 """Base class for Geom2D robot environments."""
 
 import abc
-from typing import ClassVar, Dict, Optional, Tuple
+from typing import ClassVar
 
 import gymnasium as gym
 import numpy as np
@@ -50,8 +50,8 @@ class Geom2DRobotEnv(gym.Env):
         self.action_space = CRVRobotActionSpace()
 
         # Initialized by reset().
-        self._current_state: Optional[ObjectCentricState] = None
-        self._static_object_body_cache: Dict[Object, MultiBody2D] = {}
+        self._current_state: ObjectCentricState | None = None
+        self._static_object_body_cache: dict[Object, MultiBody2D] = {}
 
         super().__init__()
 
@@ -63,12 +63,12 @@ class Geom2DRobotEnv(gym.Env):
         assert self._current_state is not None, "Need to call reset()"
         return self._current_state.copy()
 
-    def _get_info(self) -> Dict:
+    def _get_info(self) -> dict:
         return {}  # no extra info provided right now
 
     def reset(
-        self, *, seed: Optional[int] = None, options: Optional[Dict] = None
-    ) -> Tuple[ObjectCentricState, Dict]:
+        self, *, seed: int | None = None, options: dict | None = None
+    ) -> tuple[ObjectCentricState, dict]:
         super().reset(seed=seed)
 
         # Need to flush the cache in case static objects move.
@@ -87,7 +87,7 @@ class Geom2DRobotEnv(gym.Env):
 
         return observation, info
 
-    def step(self, action: Array) -> Tuple[ObjectCentricState, float, bool, bool, Dict]:
+    def step(self, action: Array) -> tuple[ObjectCentricState, float, bool, bool, dict]:
         assert self.action_space.contains(action)
         dx, dy, dtheta, darm, vac = action
         assert self._current_state is not None, "Need to call reset()"

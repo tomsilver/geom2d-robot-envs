@@ -1,10 +1,8 @@
 """Object types that are common across different environments."""
 
-from typing import Dict, List
-
 from relational_structs import Type
 
-Geom2DRobotEnvTypeFeatures: Dict[Type, List[str]] = {}
+Geom2DRobotEnvTypeFeatures: dict[Type, list[str]] = {}
 
 # All geoms have an origin (x, y) and a rotation (in radians), and a bit
 # indicating whether the geom is static (versus movable). They also have RGB.

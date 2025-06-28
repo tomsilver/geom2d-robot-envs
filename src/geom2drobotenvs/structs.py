@@ -5,7 +5,6 @@ from __future__ import annotations
 import functools
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, List
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -39,7 +38,7 @@ class Body2D:
 
     geom: Geom2D
     z_order: ZOrder
-    rendering_kwargs: Dict
+    rendering_kwargs: dict
     name: str = "root"
 
     def plot(self, ax: plt.Axes) -> None:
@@ -52,7 +51,7 @@ class MultiBody2D:
     """A container for bodies."""
 
     name: str
-    bodies: List[Body2D]
+    bodies: list[Body2D]
 
     def plot(self, ax: plt.Axes) -> None:
         """Render the bodies in matplotlib."""

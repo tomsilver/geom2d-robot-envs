@@ -1,6 +1,6 @@
 """Utilities."""
 
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Iterable
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -50,7 +50,7 @@ class CRVRobotActionSpace(Box):
 def object_to_multibody2d(
     obj: Object,
     state: ObjectCentricState,
-    static_object_cache: Dict[Object, MultiBody2D],
+    static_object_cache: dict[Object, MultiBody2D],
 ) -> MultiBody2D:
     """Create a Body2D instance for objects of standard geom types."""
     if obj.is_instance(CRVRobotType):
@@ -87,7 +87,7 @@ def object_to_multibody2d(
 def _robot_to_multibody2d(obj: Object, state: ObjectCentricState) -> MultiBody2D:
     """Helper for object_to_multibody2d()."""
     assert obj.is_instance(CRVRobotType)
-    bodies: List[Body2D] = []
+    bodies: list[Body2D] = []
 
     # Base.
     base_x = state.get(obj, "x")
@@ -162,7 +162,7 @@ def _robot_to_multibody2d(obj: Object, state: ObjectCentricState) -> MultiBody2D
 def rectangle_object_to_geom(
     state: ObjectCentricState,
     rect_obj: Object,
-    static_object_cache: Dict[Object, MultiBody2D],
+    static_object_cache: dict[Object, MultiBody2D],
 ) -> Rectangle:
     """Helper to extract a rectangle for an object."""
     assert rect_obj.is_instance(RectangleType)
@@ -182,13 +182,13 @@ def create_walls_from_world_boundaries(
     max_dx: float,
     min_dy: float,
     max_dy: float,
-) -> Dict[Object, Dict[str, float]]:
+) -> dict[Object, dict[str, float]]:
     """Create wall objects and feature dicts based on world boundaries.
 
     Velocities are used to determine how large the walls need to be to
     avoid the possibility that the robot will transport over the wall.
     """
-    state_dict: Dict[Object, Dict[str, float]] = {}
+    state_dict: dict[Object, dict[str, float]] = {}
     # Right wall.
     right_wall = RectangleType("right_wall")
     side_wall_height = world_max_y - world_min_y
@@ -253,7 +253,7 @@ def create_walls_from_world_boundaries(
 def render_state_on_ax(
     state: ObjectCentricState,
     ax: plt.Axes,
-    static_object_body_cache: Optional[Dict[Object, MultiBody2D]] = None,
+    static_object_body_cache: dict[Object, MultiBody2D] | None = None,
 ) -> None:
     """Render a state on an existing plt.Axes."""
     if static_object_body_cache is None:
@@ -272,7 +272,7 @@ def render_state_on_ax(
 
 def render_state(
     state: ObjectCentricState,
-    static_object_body_cache: Optional[Dict[Object, MultiBody2D]] = None,
+    static_object_body_cache: dict[Object, MultiBody2D] | None = None,
     world_min_x: float = 0.0,
     world_max_x: float = 10.0,
     world_min_y: float = 0.0,
@@ -306,7 +306,7 @@ def render_state(
 
 
 def state_has_collision(
-    state: ObjectCentricState, static_object_cache: Dict[Object, MultiBody2D]
+    state: ObjectCentricState, static_object_cache: dict[Object, MultiBody2D]
 ) -> bool:
     """Check if a robot or held object has a collision with another object."""
     obj_to_multibody = {
@@ -334,7 +334,7 @@ def state_has_collision(
 
 def get_tool_tip_position(
     state: ObjectCentricState, robot: Object
-) -> Tuple[float, float]:
+) -> tuple[float, float]:
     """Get the tip of the tool for the robot, which is defined as the center of
     the bottom edge of the gripper."""
     multibody = _robot_to_multibody2d(robot, state)
@@ -375,7 +375,7 @@ def get_relative_se2_transform(
 
 def get_suctioned_objects(
     state: ObjectCentricState, robot: Object
-) -> List[Tuple[Object, SE2Pose]]:
+) -> list[tuple[Object, SE2Pose]]:
     """Find objects that are in the suction zone of a CRVRobot and return the
     associated transform from gripper tool tip to suctioned object."""
     # If the robot's vacuum is not on, there are no suctioned objects.
@@ -388,7 +388,7 @@ def get_suctioned_objects(
     world_to_gripper = SE2Pose(gripper_x, gripper_y, gripper_theta)
     # Find MOVABLE objects in collision with the suction geom.
     movable_objects = [o for o in state if o != robot and state.get(o, "static") < 0.5]
-    suctioned_objects: List[Object] = []
+    suctioned_objects: list[Object] = []
     for obj in movable_objects:
         # No point in using a static object cache because these objects are
         # not static by definition.
@@ -404,7 +404,7 @@ def get_suctioned_objects(
 def snap_suctioned_objects(
     state: ObjectCentricState,
     robot: Object,
-    suctioned_objs: List[Tuple[Object, SE2Pose]],
+    suctioned_objs: list[tuple[Object, SE2Pose]],
 ) -> None:
     """Updates the state in-place."""
     gripper_x, gripper_y = get_tool_tip_position(state, robot)
@@ -422,12 +422,12 @@ def run_motion_planning_for_crv_robot(
     robot: Object,
     target_pose: SE2Pose,
     action_space: CRVRobotActionSpace,
-    static_object_body_cache: Optional[Dict[Object, MultiBody2D]] = None,
+    static_object_body_cache: dict[Object, MultiBody2D] | None = None,
     seed: int = 0,
     num_attempts: int = 10,
     num_iters: int = 100,
     smooth_amt: int = 50,
-) -> Optional[List[SE2Pose]]:
+) -> list[SE2Pose] | None:
     """Run motion planning in an environment with a CRV action space."""
     if static_object_body_cache is None:
         static_object_body_cache = {}
@@ -542,12 +542,12 @@ def run_motion_planning_for_crv_robot(
 
 
 def crv_pose_plan_to_action_plan(
-    pose_plan: List[SE2Pose],
+    pose_plan: list[SE2Pose],
     action_space: CRVRobotActionSpace,
     vacuum_while_moving: bool = False,
-) -> List[Array]:
+) -> list[Array]:
     """Convert a CRV robot pose plan into corresponding actions."""
-    action_plan: List[Array] = []
+    action_plan: list[Array] = []
     for pt1, pt2 in zip(pose_plan[:-1], pose_plan[1:]):
         action = np.zeros_like(action_space.high)
         action[0] = pt2.x - pt1.x
