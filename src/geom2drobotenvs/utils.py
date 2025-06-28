@@ -21,6 +21,9 @@ from geom2drobotenvs.structs import (
     z_orders_may_collide,
 )
 
+PURPLE: tuple[float, float, float] = (128 / 255, 0 / 255, 128 / 255)
+BLACK: tuple[float, float, float] = (0.1, 0.1, 0.1)
+
 
 class CRVRobotActionSpace(Box):
     """An action space for a CRV robot.
@@ -73,7 +76,7 @@ def object_to_multibody2d(
                 state.get(obj, "color_g"),
                 state.get(obj, "color_b"),
             ),
-            "edgecolor": (0.1, 0.1, 0.1),
+            "edgecolor": BLACK,
         }
         body = Body2D(geom, z_order, rendering_kwargs)
         multibody = MultiBody2D(obj.name, [body])
@@ -99,8 +102,7 @@ def _robot_to_multibody2d(obj: Object, state: ObjectCentricState) -> MultiBody2D
         radius=base_radius,
     )
     z_order = ZOrder.ALL
-    purple = (128 / 255, 0 / 255, 128 / 255)
-    rendering_kwargs = {"facecolor": purple, "edgecolor": "black"}
+    rendering_kwargs = {"facecolor": PURPLE, "edgecolor": BLACK}
     base = Body2D(geom, z_order, rendering_kwargs, name="base")
     bodies.append(base)
 
@@ -119,7 +121,7 @@ def _robot_to_multibody2d(obj: Object, state: ObjectCentricState) -> MultiBody2D
         rotation_about_center=theta,
     )
     z_order = ZOrder.SURFACE
-    rendering_kwargs = {"facecolor": purple, "edgecolor": "black"}
+    rendering_kwargs = {"facecolor": PURPLE, "edgecolor": BLACK}
     gripper = Body2D(geom, z_order, rendering_kwargs, name="gripper")
     bodies.append(gripper)
 
@@ -133,7 +135,7 @@ def _robot_to_multibody2d(obj: Object, state: ObjectCentricState) -> MultiBody2D
     )
     z_order = ZOrder.SURFACE
     silver = (128 / 255, 128 / 255, 128 / 255)
-    rendering_kwargs = {"facecolor": silver, "edgecolor": "black"}
+    rendering_kwargs = {"facecolor": silver, "edgecolor": BLACK}
     arm = Body2D(geom, z_order, rendering_kwargs, name="arm")
     bodies.append(arm)
 
@@ -199,9 +201,9 @@ def create_walls_from_world_boundaries(
         "height": side_wall_height,
         "theta": 0.0,
         "static": True,
-        "color_r": 0.1,
-        "color_g": 0.1,
-        "color_b": 0.1,
+        "color_r": BLACK[0],
+        "color_g": BLACK[1],
+        "color_b": BLACK[2],
         "z_order": ZOrder.ALL.value,
     }
     # Left wall.
@@ -213,9 +215,9 @@ def create_walls_from_world_boundaries(
         "height": side_wall_height,
         "theta": 0.0,
         "static": True,
-        "color_r": 0.1,
-        "color_g": 0.1,
-        "color_b": 0.1,
+        "color_r": BLACK[0],
+        "color_g": BLACK[1],
+        "color_b": BLACK[2],
         "z_order": ZOrder.ALL.value,
     }
     # Top wall.
@@ -228,9 +230,9 @@ def create_walls_from_world_boundaries(
         "height": 2 * max_dy,
         "theta": 0.0,
         "static": True,
-        "color_r": 0.1,
-        "color_g": 0.1,
-        "color_b": 0.1,
+        "color_r": BLACK[0],
+        "color_g": BLACK[1],
+        "color_b": BLACK[2],
         "z_order": ZOrder.ALL.value,
     }
     # Bottom wall.
@@ -242,9 +244,9 @@ def create_walls_from_world_boundaries(
         "height": 2 * max_dy,
         "theta": 0.0,
         "static": True,
-        "color_r": 0.1,
-        "color_g": 0.1,
-        "color_b": 0.1,
+        "color_r": BLACK[0],
+        "color_g": BLACK[1],
+        "color_b": BLACK[2],
         "z_order": ZOrder.ALL.value,
     }
     return state_dict

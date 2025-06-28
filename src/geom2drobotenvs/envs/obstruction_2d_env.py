@@ -14,6 +14,7 @@ from geom2drobotenvs.object_types import (
 )
 from geom2drobotenvs.structs import ZOrder
 from geom2drobotenvs.utils import (
+    PURPLE,
     CRVRobotActionSpace,
     SE2Pose,
     create_walls_from_world_boundaries,
@@ -56,13 +57,13 @@ class Obstruction2DEnvSpec(Geom2DRobotEnvSpec):
     table_pose: SE2Pose = SE2Pose(world_min_x, world_min_y, 0.0)
 
     # Target surface hyperparameters.
-    target_surface_rgb: tuple[float, float, float] = (0.75, 0.1, 0.75)
+    target_surface_rgb: tuple[float, float, float] = PURPLE
     target_surface_y: float = table_pose.y
     target_surface_theta: float = table_pose.theta
     target_surface_height: float = table_height
 
     # Target block hyperparameters.
-    target_block_rgb: tuple[float, float, float] = (0.75, 0.1, 0.75)
+    target_block_rgb: tuple[float, float, float] = PURPLE
     target_block_y: float = table_pose.y + table_height
     target_block_theta: float = table_pose.theta
     target_block_height: float = robot_base_radius
