@@ -30,7 +30,7 @@ def is_on(
     top: Object,
     bottom: Object,
     static_object_cache: dict[Object, MultiBody2D],
-    tol: float = 1e-5,
+    tol: float = 1e-1,
 ) -> bool:
     """Checks top object is completely on the bottom one.
 
@@ -42,7 +42,7 @@ def is_on(
     bottom_geom = rectangle_object_to_geom(state, bottom, static_object_cache)
     # The bottom-most vertices of top_geom should be contained within the bottom
     # geom when those vertices are offset by tol.
-    sorted_vertices = sorted(top_geom.vertices, key=lambda v: v[0])
+    sorted_vertices = sorted(top_geom.vertices, key=lambda v: v[1])
     for x, y in sorted_vertices[:2]:
         offset_y = y - tol
         if not bottom_geom.contains_point(x, offset_y):

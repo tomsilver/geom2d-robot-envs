@@ -4,11 +4,17 @@ import gymnasium as gym
 import numpy as np
 
 from geom2drobotenvs import register_all_environments
+from geom2drobotenvs.concepts import is_on
 from geom2drobotenvs.envs.obstruction_2d_env import (
+    CRVRobotType,
     Obstruction2DEnv,
     Obstruction2DEnvSpec,
     TargetBlockType,
     TargetSurfaceType,
+)
+from geom2drobotenvs.skills import (
+    create_rectangle_vaccum_pick_option,
+    create_rectangle_vaccum_table_place_on_option,
 )
 from geom2drobotenvs.structs import SE2Pose
 
@@ -64,7 +70,28 @@ def test_successful_pick_place_no_obstructions():
     )
     env = Obstruction2DEnv(num_obstructions=0, spec=spec)
 
-    # TODO remove
-    # obs, _ = env.reset(seed=123)
-    # import imageio.v2 as iio
-    # iio.imsave("debug.png", env.render())
+    # Uncomment to record videos.
+    # from gymnasium.wrappers import RecordVideo
+    # env = RecordVideo(env, "unit_test_videos")
+
+    pick = create_rectangle_vaccum_pick_option(env.action_space)
+    place = create_rectangle_vaccum_table_place_on_option(env.action_space)
+
+    obs, _ = env.reset(seed=123)
+    robot = obs.get_objects(CRVRobotType)[0]
+    target_block = obs.get_objects(TargetBlockType)[0]
+    target_surface = obs.get_objects(TargetSurfaceType)[0]
+    pick_block = pick.ground([robot, target_block])
+    place_block = place.ground([robot, target_block, target_surface])
+    for option in [pick_block, place_block]:
+        assert option.initiable(obs)
+        for _ in range(100):  # gratuitous
+            act = option.policy(obs)
+            obs, _, _, _, _ = env.step(act)
+            if option.terminal(obs):
+                break
+        else:
+            assert False, f"Option {option} did not terminate."
+
+    assert is_on(obs, target_block, target_surface, {})
+    env.close()
