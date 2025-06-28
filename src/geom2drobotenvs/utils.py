@@ -308,28 +308,39 @@ def render_state(
 
 
 def state_has_collision(
-    state: ObjectCentricState, static_object_cache: dict[Object, MultiBody2D]
+    state: ObjectCentricState,
+    static_object_cache: dict[Object, MultiBody2D],
+    check_moving_objects_only: bool = True,
 ) -> bool:
-    """Check if a robot or held object has a collision with another object."""
+    """Check for collisions between objects."""
+    # Collect all robots and attachments.
+    robots_and_attachments = state.get_objects(CRVRobotType)
+    for robot in state.get_objects(CRVRobotType):
+        suctioned_objs = {o for o, _ in get_suctioned_objects(state, robot)}
+        robots_and_attachments.extend(suctioned_objs)
+    # Collect all obstacles.
+    obstacles = [o for o in state if o not in robots_and_attachments]
+    # Create multibodies once.
     obj_to_multibody = {
         o: object_to_multibody2d(o, state, static_object_cache) for o in state
     }
-    for robot in state.get_objects(CRVRobotType):
-        suctioned_objs = {o for o, _ in get_suctioned_objects(state, robot)}
-        robot_bodies = obj_to_multibody[robot].bodies
-        # Treat the suctioned objects like part of the robot bodies.
-        for suctioned_obj in suctioned_objs:
-            robot_bodies.extend(obj_to_multibody[suctioned_obj].bodies)
-        obstacles = [o for o in state if o not in {robot} | suctioned_objs]
-        for robot_body in robot_bodies:
-            for obstacle in obstacles:
-                obstacle_multibody = obj_to_multibody[obstacle]
-                for obstacle_body in obstacle_multibody.bodies:
-                    if not z_orders_may_collide(
-                        robot_body.z_order, obstacle_body.z_order
-                    ):
+    # Check pairwise, depending on check_moving_objects_only.
+    if check_moving_objects_only:
+        obj_group1 = robots_and_attachments
+    else:
+        obj_group1 = robots_and_attachments + obstacles
+    obj_group2 = obstacles
+    for obj1 in obj_group1:
+        for obj2 in obj_group2:
+            if obj1 == obj2:
+                continue
+            multibody1 = obj_to_multibody[obj1]
+            multibody2 = obj_to_multibody[obj2]
+            for body1 in multibody1.bodies:
+                for body2 in multibody2.bodies:
+                    if not z_orders_may_collide(body1.z_order, body2.z_order):
                         continue
-                    if geom2ds_intersect(robot_body.geom, obstacle_body.geom):
+                    if geom2ds_intersect(body1.geom, body2.geom):
                         return True
     return False
 
@@ -373,6 +384,17 @@ def get_relative_se2_transform(
     world_to_obj1 = get_se2_pose(state, obj1)
     world_to_obj2 = get_se2_pose(state, obj2)
     return world_to_obj1.inverse * world_to_obj2
+
+
+def sample_se2_pose(
+    bounds: tuple[SE2Pose, SE2Pose], rng: np.random.Generator
+) -> SE2Pose:
+    """Sample a SE2Pose uniformly between the bounds."""
+    lb, ub = bounds
+    x = rng.uniform(lb.x, ub.x)
+    y = rng.uniform(lb.y, ub.y)
+    theta = rng.uniform(lb.theta, ub.theta)
+    return SE2Pose(x, y, theta)
 
 
 def get_suctioned_objects(

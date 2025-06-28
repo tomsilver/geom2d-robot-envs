@@ -18,6 +18,8 @@ from geom2drobotenvs.utils import (
     CRVRobotActionSpace,
     SE2Pose,
     create_walls_from_world_boundaries,
+    sample_se2_pose,
+    state_has_collision,
 )
 
 
@@ -48,6 +50,16 @@ class Obstruction2DEnvSpec(Geom2DRobotEnvSpec):
     robot_arm_length: float = 6 * robot_base_radius
     robot_gripper_height: float = 0.07
     robot_gripper_width: float = 0.01
+    robot_init_pose_bounds: tuple[SE2Pose, SE2Pose] = (
+        SE2Pose(
+            world_min_x + robot_base_radius,
+            world_max_y - 2 * robot_base_radius,
+            -np.pi / 2,
+        ),
+        SE2Pose(
+            world_max_x - robot_base_radius, world_max_y - robot_base_radius, -np.pi / 2
+        ),
+    )
 
     # Table hyperparameters.
     table_rgb: tuple[float, float, float] = (0.75, 0.75, 0.75)
@@ -58,21 +70,49 @@ class Obstruction2DEnvSpec(Geom2DRobotEnvSpec):
 
     # Target surface hyperparameters.
     target_surface_rgb: tuple[float, float, float] = PURPLE
-    target_surface_y: float = table_pose.y
-    target_surface_theta: float = table_pose.theta
+    target_surface_init_pose_bounds: tuple[SE2Pose, SE2Pose] = (
+        SE2Pose(world_min_x + robot_base_radius, table_pose.y, 0.0),
+        SE2Pose(world_max_x - robot_base_radius, table_pose.y, 0.0),
+    )
     target_surface_height: float = table_height
+    # This adds to the width of the target block.
+    target_surface_width_addition_bounds: tuple[float, float] = (
+        robot_base_radius / 5,
+        robot_base_radius / 2,
+    )
 
     # Target block hyperparameters.
     target_block_rgb: tuple[float, float, float] = PURPLE
-    target_block_y: float = table_pose.y + table_height
-    target_block_theta: float = table_pose.theta
-    target_block_height: float = robot_base_radius
+    target_block_init_pose_bounds: tuple[SE2Pose, SE2Pose] = (
+        SE2Pose(world_min_x + robot_base_radius, table_pose.y + table_height, 0.0),
+        SE2Pose(world_max_x - robot_base_radius, table_pose.y + table_height, 0.0),
+    )
+    target_block_height_bounds: tuple[float, float] = (
+        robot_base_radius / 2,
+        2 * robot_base_radius,
+    )
+    target_block_width_bounds: tuple[float, float] = (
+        robot_base_radius / 2,
+        2 * robot_base_radius,
+    )
 
     # Obstruction hyperparameters.
     obstruction_rgb: tuple[float, float, float] = (0.75, 0.1, 0.1)
-    obstruction_y: float = table_pose.y + table_height
-    obstruction_theta: float = table_pose.theta
-    obstruction_height: float = robot_base_radius
+    obstruction_init_pose_bounds = (
+        SE2Pose(world_min_x + robot_base_radius, table_pose.y + table_height, 0.0),
+        SE2Pose(world_max_x - robot_base_radius, table_pose.y + table_height, 0.0),
+    )
+    obstruction_height_bounds: tuple[float, float] = (
+        robot_base_radius / 2,
+        2 * robot_base_radius,
+    )
+    obstruction_width_bounds: tuple[float, float] = (
+        robot_base_radius / 2,
+        2 * robot_base_radius,
+    )
+
+    # For sampling initial states.
+    max_initial_state_sampling_attempts: int = 10_000
 
     # For rendering.
     render_dpi: int = 200
@@ -81,29 +121,73 @@ class Obstruction2DEnvSpec(Geom2DRobotEnvSpec):
 class Obstruction2DEnv(Geom2DRobotEnv):
     """Environment where a block must be placed on an obstructed target."""
 
-    def __init__(self, spec: Obstruction2DEnvSpec = Obstruction2DEnvSpec()) -> None:
+    def __init__(
+        self,
+        num_obstructions: int = 2,
+        spec: Obstruction2DEnvSpec = Obstruction2DEnvSpec(),
+    ) -> None:
         super().__init__(spec)
+        self._num_obstructions = num_obstructions
         self._spec: Obstruction2DEnvSpec = spec  # for type checking
 
     def _sample_initial_state(self) -> ObjectCentricState:
-        init_state_dict: dict[Object, dict[str, float]] = {}
+        constant_initial_state_dict = self._create_constant_initial_state_dict()
+        assert not state_has_collision(
+            create_state_from_dict(
+                constant_initial_state_dict, Geom2DRobotEnvTypeFeatures
+            ),
+            {},
+            check_moving_objects_only=False,
+        )
+        n = self._spec.max_initial_state_sampling_attempts
+        for _ in range(n):
+            # Sample all randomized values.
+            robot_pose = sample_se2_pose(
+                self._spec.robot_init_pose_bounds, self._np_random
+            )
+            target_block_pose = sample_se2_pose(
+                self._spec.target_block_init_pose_bounds, self._np_random
+            )
+            target_block_shape = (
+                self._np_random.uniform(*self._spec.target_block_width_bounds),
+                self._np_random.uniform(*self._spec.target_block_height_bounds),
+            )
+            target_surface_pose = sample_se2_pose(
+                self._spec.target_surface_init_pose_bounds, self._np_random
+            )
+            target_surface_width_addition = self._np_random.uniform(
+                *self._spec.target_surface_width_addition_bounds
+            )
+            target_surface_shape = (
+                target_block_shape[0] + target_surface_width_addition,
+                self._spec.target_surface_height,
+            )
+            obstructions: list[tuple[SE2Pose, tuple[float, float]]] = []
+            for _ in range(self._num_obstructions):
+                obstruction_pose = sample_se2_pose(
+                    self._spec.obstruction_init_pose_bounds, self._np_random
+                )
+                obstruction_shape = (
+                    self._np_random.uniform(*self._spec.obstruction_width_bounds),
+                    self._np_random.uniform(*self._spec.obstruction_height_bounds),
+                )
+                obstructions.append((obstruction_pose, obstruction_shape))
+            state = self._create_initial_state(
+                constant_initial_state_dict,
+                robot_pose,
+                target_surface_pose,
+                target_surface_shape,
+                target_block_pose,
+                target_block_shape,
+                obstructions,
+            )
+            # Check initial state validity.
+            if not state_has_collision(state, {}, check_moving_objects_only=False):
+                return state
+        raise RuntimeError(f"Failed to sample initial state after {n} attempts")
 
-        # Create the robot at the top center of the world.
-        robot = CRVRobotType("robot")
-        robot_x = (self._spec.world_min_x + self._spec.world_max_x) / 2.0
-        robot_y = self._spec.world_max_y - self._spec.robot_base_radius
-        robot_theta = -np.pi / 2  # facing down
-        init_state_dict[robot] = {
-            "x": robot_x,
-            "y": robot_y,
-            "theta": robot_theta,
-            "base_radius": self._spec.robot_base_radius,
-            "arm_joint": self._spec.robot_base_radius,  # arm is fully retracted
-            "arm_length": self._spec.robot_arm_length,
-            "vacuum": 0.0,  # vacuum is off
-            "gripper_height": self._spec.robot_gripper_height,
-            "gripper_width": self._spec.robot_gripper_width,
-        }
+    def _create_constant_initial_state_dict(self) -> dict[Object, dict[str, float]]:
+        init_state_dict: dict[Object, dict[str, float]] = {}
 
         # Create the table.
         table = RectangleType("table")
@@ -117,55 +201,6 @@ class Obstruction2DEnv(Geom2DRobotEnv):
             "color_r": self._spec.table_rgb[0],
             "color_g": self._spec.table_rgb[1],
             "color_b": self._spec.table_rgb[2],
-            "z_order": ZOrder.ALL.value,
-        }
-
-        # Create the target surface.
-        target_surface = RectangleType("target_surface")
-        # TODO randomize x and width.
-        init_state_dict[target_surface] = {
-            "x": (self._spec.world_max_x + self._spec.world_min_x) / 2,  # TODO
-            "y": self._spec.target_surface_y,
-            "theta": self._spec.target_surface_theta,
-            "width": self._spec.robot_base_radius * 2.5,  # TODO
-            "height": self._spec.target_surface_height,
-            "static": True,
-            "color_r": self._spec.target_surface_rgb[0],
-            "color_g": self._spec.target_surface_rgb[1],
-            "color_b": self._spec.target_surface_rgb[2],
-            "z_order": ZOrder.NONE.value,
-        }
-
-        # Create target block.
-        target_block = RectangleType("target_block")
-        # TODO randomize x and width.
-        init_state_dict[target_block] = {
-            "x": 0.1,  # TODO
-            "y": self._spec.target_block_y,
-            "theta": self._spec.target_block_theta,
-            "width": self._spec.robot_base_radius * 2,  # TODO
-            "height": self._spec.target_block_height,
-            "static": False,
-            "color_r": self._spec.target_block_rgb[0],
-            "color_g": self._spec.target_block_rgb[1],
-            "color_b": self._spec.target_block_rgb[2],
-            "z_order": ZOrder.ALL.value,
-        }
-
-        # Create obstructions.
-        # TODO allow multiple obstructions.
-        obstruction = RectangleType("obstruction0")
-        # TODO randomize x and width.
-        init_state_dict[obstruction] = {
-            "x": (self._spec.world_max_x + self._spec.world_min_x) / 2,  # TODO
-            "y": self._spec.obstruction_y,
-            "theta": self._spec.obstruction_theta,
-            "width": self._spec.robot_base_radius * 2,  # TODO
-            "height": self._spec.obstruction_height,
-            "static": False,
-            "color_r": self._spec.obstruction_rgb[0],
-            "color_g": self._spec.obstruction_rgb[1],
-            "color_b": self._spec.obstruction_rgb[2],
             "z_order": ZOrder.ALL.value,
         }
 
@@ -184,6 +219,82 @@ class Obstruction2DEnv(Geom2DRobotEnv):
             max_dy,
         )
         init_state_dict.update(wall_state_dict)
+
+        return init_state_dict
+
+    def _create_initial_state(
+        self,
+        constant_initial_state_dict: dict[Object, dict[str, float]],
+        robot_pose: SE2Pose,
+        target_surface_pose: SE2Pose,
+        target_surface_shape: tuple[float, float],
+        target_block_pose: SE2Pose,
+        target_block_shape: tuple[float, float],
+        obstructions: list[tuple[SE2Pose, tuple[float, float]]],
+    ) -> ObjectCentricState:
+        # Shallow copy should be okay because the constant objects should not
+        # ever change in this method.
+        init_state_dict = constant_initial_state_dict.copy()
+
+        # Create the robot.
+        robot = CRVRobotType("robot")
+        init_state_dict[robot] = {
+            "x": robot_pose.x,
+            "y": robot_pose.y,
+            "theta": robot_pose.theta,
+            "base_radius": self._spec.robot_base_radius,
+            "arm_joint": self._spec.robot_base_radius,  # arm is fully retracted
+            "arm_length": self._spec.robot_arm_length,
+            "vacuum": 0.0,  # vacuum is off
+            "gripper_height": self._spec.robot_gripper_height,
+            "gripper_width": self._spec.robot_gripper_width,
+        }
+
+        # Create the target surface.
+        target_surface = RectangleType("target_surface")
+        init_state_dict[target_surface] = {
+            "x": target_surface_pose.x,
+            "y": target_surface_pose.y,
+            "theta": target_surface_pose.theta,
+            "width": target_surface_shape[0],
+            "height": target_surface_shape[1],
+            "static": True,
+            "color_r": self._spec.target_surface_rgb[0],
+            "color_g": self._spec.target_surface_rgb[1],
+            "color_b": self._spec.target_surface_rgb[2],
+            "z_order": ZOrder.NONE.value,
+        }
+
+        # Create the target block.
+        target_block = RectangleType("target_block")
+        init_state_dict[target_block] = {
+            "x": target_block_pose.x,
+            "y": target_block_pose.y,
+            "theta": target_block_pose.theta,
+            "width": target_block_shape[0],
+            "height": target_block_shape[1],
+            "static": False,
+            "color_r": self._spec.target_block_rgb[0],
+            "color_g": self._spec.target_block_rgb[1],
+            "color_b": self._spec.target_block_rgb[2],
+            "z_order": ZOrder.ALL.value,
+        }
+
+        # Create obstructions.
+        for i, (obstruction_pose, obstruction_shape) in enumerate(obstructions):
+            obstruction = RectangleType(f"obstruction{i}")
+            init_state_dict[obstruction] = {
+                "x": obstruction_pose.x,
+                "y": obstruction_pose.y,
+                "theta": obstruction_pose.theta,
+                "width": obstruction_shape[0],
+                "height": obstruction_shape[1],
+                "static": False,
+                "color_r": self._spec.obstruction_rgb[0],
+                "color_g": self._spec.obstruction_rgb[1],
+                "color_b": self._spec.obstruction_rgb[2],
+                "z_order": ZOrder.ALL.value,
+            }
 
         # Finalize state.
         return create_state_from_dict(init_state_dict, Geom2DRobotEnvTypeFeatures)
