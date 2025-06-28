@@ -1,7 +1,7 @@
 """Base class for Geom2D robot environments."""
 
 import abc
-from typing import ClassVar
+from dataclasses import dataclass
 
 import gymnasium as gym
 import numpy as np
@@ -25,6 +25,17 @@ from geom2drobotenvs.utils import (
 )
 
 
+@dataclass(frozen=True)
+class Geom2DRobotEnvSpec:
+    """Scene specification for a Geom2DRobotEnv."""
+
+    # The world is oriented like a standard X/Y coordinate frame.
+    world_min_x: float = 0.0
+    world_max_x: float = 10.0
+    world_min_y: float = 0.0
+    world_max_y: float = 10.0
+
+
 class Geom2DRobotEnv(gym.Env):
     """Base class for Geom2D robot environments.
 
@@ -37,14 +48,8 @@ class Geom2DRobotEnv(gym.Env):
     metadata = {"render_modes": [render_mode]}
     _render_dpi: int = 50
 
-    # The world is oriented like a standard X/Y coordinate frame.
-    # Subclasses may override.
-    _world_min_x: ClassVar[float] = 0.0
-    _world_max_x: ClassVar[float] = 10.0
-    _world_min_y: ClassVar[float] = 0.0
-    _world_max_y: ClassVar[float] = 10.0
-
-    def __init__(self) -> None:
+    def __init__(self, spec: Geom2DRobotEnvSpec) -> None:
+        self._spec = spec
         self._types = {RectangleType, CRVRobotType}
         self.observation_space = ObjectCentricStateSpace(self._types)
         self.action_space = CRVRobotActionSpace()
@@ -132,9 +137,9 @@ class Geom2DRobotEnv(gym.Env):
         return render_state(
             self._current_state,
             self._static_object_body_cache,
-            self._world_min_x,
-            self._world_max_x,
-            self._world_min_y,
-            self._world_max_y,
+            self._spec.world_min_x,
+            self._spec.world_max_x,
+            self._spec.world_min_y,
+            self._spec.world_max_y,
             self._render_dpi,
         )

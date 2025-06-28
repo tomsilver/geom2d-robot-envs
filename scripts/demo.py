@@ -6,7 +6,7 @@ import gymnasium as gym
 from gymnasium.wrappers import RecordVideo
 
 # Needed to register environments for gym.make().
-import geom2drobotenvs  # pylint: disable=unused-import
+from geom2drobotenvs import register_all_environments
 
 
 def _main() -> None:
@@ -16,6 +16,7 @@ def _main() -> None:
     parser.add_argument("--steps", required=False, type=int, default=32)
     parser.add_argument("--outdir", required=False, type=str, default="demo_videos")
     args = parser.parse_args()
+    register_all_environments()
     env = gym.make(args.env)
     env = RecordVideo(env, args.outdir)
     env.reset(seed=args.seed)
@@ -27,6 +28,7 @@ def _main() -> None:
             print("WARNING: terminating early.")
             break
     env.close()
+    print(f"Saved video to {args.outdir}")
 
 
 if __name__ == "__main__":

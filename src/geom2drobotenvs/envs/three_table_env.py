@@ -1,12 +1,12 @@
 """Environment with blocks on three tables."""
 
-from typing import ClassVar
+from dataclasses import dataclass
 
 import numpy as np
 from relational_structs import Object, ObjectCentricState
 from relational_structs.utils import create_state_from_dict
 
-from geom2drobotenvs.envs.base_env import Geom2DRobotEnv
+from geom2drobotenvs.envs.base_env import Geom2DRobotEnv, Geom2DRobotEnvSpec
 from geom2drobotenvs.object_types import (
     CRVRobotType,
     Geom2DRobotEnvTypeFeatures,
@@ -19,14 +19,22 @@ from geom2drobotenvs.utils import (
 )
 
 
+@dataclass(frozen=True)
+class ThreeTableEnvSpec(Geom2DRobotEnvSpec):
+    """Scene specification for ThreeTableEnv()."""
+
+    robot_base_radius: float = 0.4
+
+
 class ThreeTableEnv(Geom2DRobotEnv):
     """Environment with blocks on three tables."""
 
-    _robot_base_radius: ClassVar[float] = 0.4
-
-    def __init__(self, num_blocks: int = 7) -> None:
-        super().__init__()
+    def __init__(
+        self, num_blocks: int = 7, spec: ThreeTableEnvSpec = ThreeTableEnvSpec()
+    ) -> None:
+        super().__init__(spec)
         self._num_blocks = num_blocks
+        self._spec: ThreeTableEnvSpec = spec
 
     def _sample_initial_state(self) -> ObjectCentricState:
         # Currently nothing is randomized; this will change in the future.
@@ -34,14 +42,14 @@ class ThreeTableEnv(Geom2DRobotEnv):
 
         # Create the robot, initially facing right, at the center of the room.
         robot = CRVRobotType("robot")
-        robot_x = (self._world_min_x + self._world_max_x) / 2.0
+        robot_x = (self._spec.world_min_x + self._spec.world_max_x) / 2.0
         init_state_dict[robot] = {
             "x": robot_x,
-            "y": (self._world_min_y + self._world_max_y) / 2.0,
+            "y": (self._spec.world_min_y + self._spec.world_max_y) / 2.0,
             "theta": 0.0,
-            "base_radius": self._robot_base_radius,
-            "arm_joint": self._robot_base_radius,  # arm is fully retracted
-            "arm_length": 6 * self._robot_base_radius,
+            "base_radius": self._spec.robot_base_radius,
+            "arm_joint": self._spec.robot_base_radius,  # arm is fully retracted
+            "arm_length": 6 * self._spec.robot_base_radius,
             "vacuum": 0.0,  # vacuum is off
             "gripper_height": 0.7,
             "gripper_width": 0.1,
@@ -59,11 +67,15 @@ class ThreeTableEnv(Geom2DRobotEnv):
 
         # Create a table on the right.
         right_table = RectangleType("right_table")
-        table_long_size = (self._world_max_x - self._world_min_x) / 5.0
-        table_short_size = (self._world_max_y - self._world_min_y) / 7.0
+        table_long_size = (self._spec.world_max_x - self._spec.world_min_x) / 5.0
+        table_short_size = (self._spec.world_max_y - self._spec.world_min_y) / 7.0
         right_table_right_pad = table_long_size / 2
-        right_table_x = self._world_max_x - (table_long_size + right_table_right_pad)
-        right_table_y = (self._world_min_y + self._world_max_y - table_short_size) / 2.0
+        right_table_x = self._spec.world_max_x - (
+            table_long_size + right_table_right_pad
+        )
+        right_table_y = (
+            self._spec.world_min_y + self._spec.world_max_y - table_short_size
+        ) / 2.0
         init_state_dict[right_table] = {
             "x": right_table_x,
             "y": right_table_y,
@@ -74,8 +86,12 @@ class ThreeTableEnv(Geom2DRobotEnv):
 
         # Create a table on the left.
         left_table = RectangleType("left_table")
-        left_table_x = self._world_min_x + (table_long_size - right_table_right_pad)
-        left_table_y = (self._world_min_y + self._world_max_y - table_short_size) / 2.0
+        left_table_x = self._spec.world_min_x + (
+            table_long_size - right_table_right_pad
+        )
+        left_table_y = (
+            self._spec.world_min_y + self._spec.world_max_y - table_short_size
+        ) / 2.0
         init_state_dict[left_table] = {
             "x": left_table_x,
             "y": left_table_y,
@@ -87,7 +103,7 @@ class ThreeTableEnv(Geom2DRobotEnv):
         # Create a table on the bottom.
         bottom_table = RectangleType("bottom_table")
         bottom_table_x = robot_x - (table_short_size / 2)
-        bottom_table_y = self._world_min_x + right_table_right_pad
+        bottom_table_y = self._spec.world_min_x + right_table_right_pad
         init_state_dict[bottom_table] = {
             "x": bottom_table_x,
             "y": bottom_table_y,
@@ -224,10 +240,10 @@ class ThreeTableEnv(Geom2DRobotEnv):
         min_dx, min_dy = self.action_space.low[:2]
         max_dx, max_dy = self.action_space.high[:2]
         wall_state_dict = create_walls_from_world_boundaries(
-            self._world_min_x,
-            self._world_max_x,
-            self._world_min_y,
-            self._world_max_y,
+            self._spec.world_min_x,
+            self._spec.world_max_x,
+            self._spec.world_min_y,
+            self._spec.world_max_y,
             min_dx,
             max_dx,
             min_dy,

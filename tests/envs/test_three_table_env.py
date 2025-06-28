@@ -5,6 +5,7 @@ import numpy as np
 from relational_structs import Object, ObjectCentricState, ObjectCentricStateSpace
 from relational_structs.utils import create_state_from_dict
 
+from geom2drobotenvs import register_all_environments
 from geom2drobotenvs.envs.three_table_env import ThreeTableEnv
 from geom2drobotenvs.object_types import (
     CRVRobotType,
@@ -32,7 +33,12 @@ def test_three_table_env():
 
 def _get_world_boundaries(env: ThreeTableEnv) -> tuple[float, float, float, float]:
     # pylint: disable=protected-access
-    return (env._world_min_x, env._world_min_y, env._world_max_x, env._world_max_y)
+    return (
+        env._spec.world_min_x,
+        env._spec.world_min_y,
+        env._spec.world_max_x,
+        env._spec.world_max_y,
+    )
 
 
 def _create_common_state_dict(env: ThreeTableEnv) -> dict[Object, dict[str, float]]:
@@ -72,6 +78,7 @@ def _create_common_state_dict(env: ThreeTableEnv) -> dict[Object, dict[str, floa
 
 def test_three_table_robot_moves():
     """Test basic movements of the robot in ThreeTableEnv()."""
+    register_all_environments()
     env = gym.make("geom2drobotenvs/ThreeTables-v0", num_blocks=5)
 
     # Uncomment to record videos.
