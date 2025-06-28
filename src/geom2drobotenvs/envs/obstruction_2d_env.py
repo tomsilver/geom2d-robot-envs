@@ -215,8 +215,9 @@ class Obstruction2DEnv(Geom2DRobotEnv):
             target_surface = target_surfaces[0]
             if is_on(state, target_object, target_surface, {}):
                 continue
-            if not state_has_collision(state, {}, check_moving_objects_only=False):
-                return state
+            if state_has_collision(state, {}, check_moving_objects_only=False):
+                continue
+            return state
         raise RuntimeError(f"Failed to sample initial state after {n} attempts")
 
     def _create_constant_initial_state_dict(self) -> dict[Object, dict[str, float]]:
