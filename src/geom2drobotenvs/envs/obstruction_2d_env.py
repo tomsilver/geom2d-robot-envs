@@ -3,9 +3,10 @@
 from dataclasses import dataclass
 
 import numpy as np
-from relational_structs import Object, ObjectCentricState
+from relational_structs import Object, ObjectCentricState, Type
 from relational_structs.utils import create_state_from_dict
 
+from geom2drobotenvs.concepts import is_on
 from geom2drobotenvs.envs.base_env import Geom2DRobotEnv, Geom2DRobotEnvSpec
 from geom2drobotenvs.object_types import (
     CRVRobotType,
@@ -20,6 +21,15 @@ from geom2drobotenvs.utils import (
     create_walls_from_world_boundaries,
     sample_se2_pose,
     state_has_collision,
+)
+
+TargetBlockType = Type("target_block", parent=RectangleType)
+TargetSurfaceType = Type("target_surface", parent=RectangleType)
+Geom2DRobotEnvTypeFeatures[TargetBlockType] = list(
+    Geom2DRobotEnvTypeFeatures[RectangleType]
+)
+Geom2DRobotEnvTypeFeatures[TargetSurfaceType] = list(
+    Geom2DRobotEnvTypeFeatures[RectangleType]
 )
 
 
@@ -196,7 +206,15 @@ class Obstruction2DEnv(Geom2DRobotEnv):
                 target_block_shape,
                 obstructions,
             )
-            # Check initial state validity.
+            # Check initial state validity: goal not satisfied and no collisions.
+            target_objects = state.get_objects(TargetBlockType)
+            assert len(target_objects) == 1
+            target_object = target_objects[0]
+            target_surfaces = state.get_objects(TargetSurfaceType)
+            assert len(target_surfaces) == 1
+            target_surface = target_surfaces[0]
+            if is_on(state, target_object, target_surface, {}):
+                continue
             if not state_has_collision(state, {}, check_moving_objects_only=False):
                 return state
         raise RuntimeError(f"Failed to sample initial state after {n} attempts")
@@ -266,7 +284,7 @@ class Obstruction2DEnv(Geom2DRobotEnv):
         }
 
         # Create the target surface.
-        target_surface = RectangleType("target_surface")
+        target_surface = TargetSurfaceType("target_surface")
         init_state_dict[target_surface] = {
             "x": target_surface_pose.x,
             "y": target_surface_pose.y,
@@ -281,7 +299,7 @@ class Obstruction2DEnv(Geom2DRobotEnv):
         }
 
         # Create the target block.
-        target_block = RectangleType("target_block")
+        target_block = TargetBlockType("target_block")
         init_state_dict[target_block] = {
             "x": target_block_pose.x,
             "y": target_block_pose.y,

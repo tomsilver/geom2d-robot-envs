@@ -25,6 +25,31 @@ def is_inside(
     return True
 
 
+def is_on(
+    state: ObjectCentricState,
+    top: Object,
+    bottom: Object,
+    static_object_cache: dict[Object, MultiBody2D],
+    tol: float = 1e-5,
+) -> bool:
+    """Checks top object is completely on the bottom one.
+
+    Only rectangles are currently supported.
+
+    Assumes that "up" is positive y.
+    """
+    top_geom = rectangle_object_to_geom(state, top, static_object_cache)
+    bottom_geom = rectangle_object_to_geom(state, bottom, static_object_cache)
+    # The bottom-most vertices of top_geom should be contained within the bottom
+    # geom when those vertices are offset by tol.
+    sorted_vertices = sorted(top_geom.vertices, key=lambda v: v[0])
+    for x, y in sorted_vertices[:2]:
+        offset_y = y - tol
+        if not bottom_geom.contains_point(x, offset_y):
+            return False
+    return True
+
+
 def is_movable_rectangle(state: ObjectCentricState, obj: Object) -> bool:
     """Checks if an object is a movable rectangle."""
     return obj.is_instance(RectangleType) and state.get(obj, "static") < 0.5
