@@ -1,7 +1,5 @@
 """Boolean concepts that may be useful for goals, high-level planning, etc."""
 
-from typing import Dict
-
 from relational_structs import Object, ObjectCentricState
 
 from geom2drobotenvs.object_types import RectangleType
@@ -13,7 +11,7 @@ def is_inside(
     state: ObjectCentricState,
     inner: Object,
     outer: Object,
-    static_object_cache: Dict[Object, MultiBody2D],
+    static_object_cache: dict[Object, MultiBody2D],
 ) -> bool:
     """Checks if the inner object is completely inside the outer one.
 

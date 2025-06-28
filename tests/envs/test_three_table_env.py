@@ -1,7 +1,5 @@
 """Tests for three_table_env.py."""
 
-from typing import Dict, Tuple
-
 import gymnasium as gym
 import numpy as np
 from relational_structs import Object, ObjectCentricState, ObjectCentricStateSpace
@@ -32,12 +30,12 @@ def test_three_table_env():
     assert isinstance(obs, ObjectCentricState)
 
 
-def _get_world_boundaries(env: ThreeTableEnv) -> Tuple[float, float, float, float]:
+def _get_world_boundaries(env: ThreeTableEnv) -> tuple[float, float, float, float]:
     # pylint: disable=protected-access
     return (env._world_min_x, env._world_min_y, env._world_max_x, env._world_max_y)
 
 
-def _create_common_state_dict(env: ThreeTableEnv) -> Dict[Object, Dict[str, float]]:
+def _create_common_state_dict(env: ThreeTableEnv) -> dict[Object, dict[str, float]]:
     """Helper function to create a centered robot and walls."""
     world_min_x, world_min_y, world_max_x, world_max_y = _get_world_boundaries(env)
     # Set up an initial scene with just the robot.

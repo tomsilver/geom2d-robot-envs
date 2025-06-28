@@ -3,7 +3,7 @@
 import argparse
 
 import gymnasium as gym
-from gymnasium.wrappers.record_video import RecordVideo
+from gymnasium.wrappers import RecordVideo
 
 # Needed to register environments for gym.make().
 import geom2drobotenvs  # pylint: disable=unused-import

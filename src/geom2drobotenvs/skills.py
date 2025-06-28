@@ -1,6 +1,6 @@
 """Skills that might be useful in certain environments."""
 
-from typing import Dict, Iterator, List, Sequence
+from typing import Iterator, Sequence
 
 import numpy as np
 from gymnasium.spaces import Space
@@ -33,8 +33,8 @@ def _iter_motion_plans_to_rectangle(
     target: Object,
     action_space: Space,
     robot_to_target_side_dist: float,
-    static_object_body_cache: Dict[Object, MultiBody2D],
-) -> Iterator[List[SE2Pose]]:
+    static_object_body_cache: dict[Object, MultiBody2D],
+) -> Iterator[list[SE2Pose]]:
     """Helper for picking and placing that generates motion plans to approach a
     rectangle from four possible sides."""
 
@@ -125,7 +125,7 @@ def create_rectangle_vaccum_pick_option(action_space: Space) -> ParameterizedOpt
         gripper_pad = gripper_width / 2
         vacuum_pad = 1e-6  # leave a small space to avoid collisions
         robot_to_target_side_dist = arm_length + gripper_pad + vacuum_pad
-        static_object_body_cache: Dict[Object, MultiBody2D] = {}
+        static_object_body_cache: dict[Object, MultiBody2D] = {}
         for pose_plan in _iter_motion_plans_to_rectangle(
             state,
             robot,
@@ -194,7 +194,7 @@ def create_rectangle_vaccum_table_place_option(
     ) -> bool:
         robot, held_obj, table = params
 
-        static_object_body_cache: Dict[Object, MultiBody2D] = {}
+        static_object_body_cache: dict[Object, MultiBody2D] = {}
         suctioned_objs = get_suctioned_objects(state, robot)
 
         # Try to approach the table from each of the four sides. After each

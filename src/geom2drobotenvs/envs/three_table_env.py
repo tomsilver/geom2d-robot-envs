@@ -1,6 +1,6 @@
 """Environment with blocks on three tables."""
 
-from typing import ClassVar, Dict
+from typing import ClassVar
 
 import numpy as np
 from relational_structs import Object, ObjectCentricState
@@ -30,7 +30,7 @@ class ThreeTableEnv(Geom2DRobotEnv):
 
     def _sample_initial_state(self) -> ObjectCentricState:
         # Currently nothing is randomized; this will change in the future.
-        init_state_dict: Dict[Object, Dict[str, float]] = {}
+        init_state_dict: dict[Object, dict[str, float]] = {}
 
         # Create the robot, initially facing right, at the center of the room.
         robot = CRVRobotType("robot")
