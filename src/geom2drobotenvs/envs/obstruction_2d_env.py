@@ -110,6 +110,10 @@ class Obstruction2DEnvSpec(Geom2DRobotEnvSpec):
         robot_base_radius / 2,
         2 * robot_base_radius,
     )
+    # NOTE: this is not the "real" probability, but rather, the probability
+    # that we will attempt to sample the obstruction somewhere on the target
+    # surface during each round of rejection sampling during reset().
+    obstruction_init_on_target_prob: float = 0.9
 
     # For sampling initial states.
     max_initial_state_sampling_attempts: int = 10_000
@@ -141,7 +145,6 @@ class Obstruction2DEnv(Geom2DRobotEnv):
         )
         n = self._spec.max_initial_state_sampling_attempts
         for _ in range(n):
-            # TODO update to add probability of sampling each block on the target surface
             # Sample all randomized values.
             robot_pose = sample_se2_pose(
                 self._spec.robot_init_pose_bounds, self._np_random
@@ -165,13 +168,24 @@ class Obstruction2DEnv(Geom2DRobotEnv):
             )
             obstructions: list[tuple[SE2Pose, tuple[float, float]]] = []
             for _ in range(self._num_obstructions):
-                obstruction_pose = sample_se2_pose(
-                    self._spec.obstruction_init_pose_bounds, self._np_random
-                )
                 obstruction_shape = (
                     self._np_random.uniform(*self._spec.obstruction_width_bounds),
                     self._np_random.uniform(*self._spec.obstruction_height_bounds),
                 )
+                obstruction_init_on_target = (
+                    self._np_random.uniform()
+                    < self._spec.obstruction_init_on_target_prob
+                )
+                if obstruction_init_on_target:
+                    old_lb, old_ub = self._spec.obstruction_init_pose_bounds
+                    new_x_lb = target_surface_pose.x - obstruction_shape[0]
+                    new_x_ub = target_surface_pose.x + target_surface_shape[0]
+                    new_lb = SE2Pose(new_x_lb, old_lb.y, old_lb.theta)
+                    new_ub = SE2Pose(new_x_ub, old_ub.y, old_ub.theta)
+                    pose_bounds = (new_lb, new_ub)
+                else:
+                    pose_bounds = self._spec.obstruction_init_pose_bounds
+                obstruction_pose = sample_se2_pose(pose_bounds, self._np_random)
                 obstructions.append((obstruction_pose, obstruction_shape))
             state = self._create_initial_state(
                 constant_initial_state_dict,
