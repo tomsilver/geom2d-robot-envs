@@ -1,6 +1,6 @@
 name: CI Checks
 
-on: [push]
+on: [pull_request]
 
 jobs:
   autoformat:
@@ -32,7 +32,7 @@ jobs:
         pip install -e ".[develop]"
     - name: Lint
       run: |
-        pytest . --pylint -m pylint --pylint-rcfile=.geom2drobotenvs_pylintrc
+        pytest . --pylint -m pylint --pylint-rcfile=.pylintrc
   static-type-checking:
     runs-on: ubuntu-latest
     strategy:
