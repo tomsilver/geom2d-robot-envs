@@ -66,6 +66,7 @@ def object_to_multibody2d(
         height = state.get(obj, "height")
         theta = state.get(obj, "theta")
         geom = Rectangle(x, y, width, height, theta)
+        print(obj, geom)
         z_order = ZOrder(int(state.get(obj, "z_order")))
         rendering_kwargs = {
             "facecolor": (

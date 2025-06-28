@@ -35,6 +35,21 @@ class Geom2DRobotEnvSpec:
     world_min_y: float = 0.0
     world_max_y: float = 10.0
 
+    # Action space parameters.
+    min_dx: float = -5e-1
+    max_dx: float = 5e-1
+    min_dy: float = -5e-1
+    max_dy: float = 5e-1
+    min_dtheta: float = -np.pi / 16
+    max_dtheta: float = np.pi / 16
+    min_darm: float = -1e-1
+    max_darm: float = 1e-1
+    min_vac: float = 0.0
+    max_vac: float = 1.0
+
+    # For rendering.
+    render_dpi: int = 50
+
 
 class Geom2DRobotEnv(gym.Env):
     """Base class for Geom2D robot environments.
@@ -46,13 +61,23 @@ class Geom2DRobotEnv(gym.Env):
     # Only RGB rendering is implemented.
     render_mode = "rgb_array"
     metadata = {"render_modes": [render_mode]}
-    _render_dpi: int = 50
 
     def __init__(self, spec: Geom2DRobotEnvSpec) -> None:
         self._spec = spec
         self._types = {RectangleType, CRVRobotType}
         self.observation_space = ObjectCentricStateSpace(self._types)
-        self.action_space = CRVRobotActionSpace()
+        self.action_space = CRVRobotActionSpace(
+            min_dx=self._spec.min_dx,
+            max_dx=self._spec.max_dx,
+            min_dy=self._spec.min_dy,
+            max_dy=self._spec.max_dy,
+            min_dtheta=self._spec.min_dtheta,
+            max_dtheta=self._spec.max_dtheta,
+            min_darm=self._spec.min_darm,
+            max_darm=self._spec.max_darm,
+            min_vac=self._spec.min_vac,
+            max_vac=self._spec.max_vac,
+        )
 
         # Initialized by reset().
         self._current_state: ObjectCentricState | None = None
@@ -141,5 +166,5 @@ class Geom2DRobotEnv(gym.Env):
             self._spec.world_max_x,
             self._spec.world_min_y,
             self._spec.world_max_y,
-            self._render_dpi,
+            self._spec.render_dpi,
         )

@@ -26,9 +26,21 @@ class Obstruction2DEnvSpec(Geom2DRobotEnvSpec):
 
     # World boundaries. Standard coordinate frame with (0, 0) in bottom left.
     world_min_x: float = 0.0
-    world_max_x: float = 1.0
+    world_max_x: float = (1 + np.sqrt(5)) / 2  # golden ratio :)
     world_min_y: float = 0.0
     world_max_y: float = 1.0
+
+    # Action space parameters.
+    min_dx: float = -5e-2
+    max_dx: float = 5e-2
+    min_dy: float = -5e-2
+    max_dy: float = 5e-2
+    min_dtheta: float = -np.pi / 16
+    max_dtheta: float = np.pi / 16
+    min_darm: float = -1e-1
+    max_darm: float = 1e-1
+    min_vac: float = 0.0
+    max_vac: float = 1.0
 
     # Robot hyperparameters.
     robot_base_radius: float = 0.1
@@ -39,9 +51,9 @@ class Obstruction2DEnvSpec(Geom2DRobotEnvSpec):
     # Table hyperparameters.
     table_rgb: tuple[float, float, float] = (0.75, 0.75, 0.75)
     table_height: float = 0.1
-    table_width: float = world_max_x - world_max_y
+    table_width: float = world_max_x - world_min_x
     # The table pose is defined relative to the bottom left hand corner.
-    table_pose: SE2Pose = SE2Pose(world_min_x, world_min_y + table_height / 2, 0.0)
+    table_pose: SE2Pose = SE2Pose(world_min_x, world_min_y, 0.0)
 
     # Target surface hyperparameters.
     target_surface_rgb: tuple[float, float, float] = (0.75, 0.1, 0.1)
@@ -51,9 +63,12 @@ class Obstruction2DEnvSpec(Geom2DRobotEnvSpec):
 
     # Target block hyperparameters.
     target_block_rgb: tuple[float, float, float] = (0.75, 0.1, 0.1)
-    target_block_y: float = table_pose.y
+    target_block_y: float = table_pose.y + table_height
     target_block_theta: float = table_pose.theta
-    target_block_height: float = 2 * robot_base_radius
+    target_block_height: float = robot_base_radius
+
+    # For rendering.
+    render_dpi: int = 200
 
 
 class Obstruction2DEnv(Geom2DRobotEnv):
@@ -106,7 +121,7 @@ class Obstruction2DEnv(Geom2DRobotEnv):
             "x": (self._spec.world_max_x + self._spec.world_min_x) / 2,  # TODO
             "y": self._spec.target_surface_y,
             "theta": self._spec.target_surface_theta,
-            "width": self._spec.robot_base_radius,  # TODO
+            "width": self._spec.robot_base_radius * 2.5,  # TODO
             "height": self._spec.target_surface_height,
             "static": True,
             "color_r": self._spec.target_surface_rgb[0],
@@ -122,7 +137,7 @@ class Obstruction2DEnv(Geom2DRobotEnv):
             "x": (self._spec.world_max_x + self._spec.world_min_x) / 2,  # TODO
             "y": self._spec.target_block_y,
             "theta": self._spec.target_block_theta,
-            "width": self._spec.robot_base_radius,  # TODO
+            "width": self._spec.robot_base_radius * 2,  # TODO
             "height": self._spec.target_block_height,
             "static": True,
             "color_r": self._spec.target_block_rgb[0],
