@@ -73,7 +73,7 @@ def object_to_multibody2d(
                 state.get(obj, "color_g"),
                 state.get(obj, "color_b"),
             ),
-            "edgecolor": "black",
+            "edgecolor": (0.1, 0.1, 0.1),
         }
         body = Body2D(geom, z_order, rendering_kwargs)
         multibody = MultiBody2D(obj.name, [body])

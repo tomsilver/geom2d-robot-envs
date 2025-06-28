@@ -56,16 +56,22 @@ class Obstruction2DEnvSpec(Geom2DRobotEnvSpec):
     table_pose: SE2Pose = SE2Pose(world_min_x, world_min_y, 0.0)
 
     # Target surface hyperparameters.
-    target_surface_rgb: tuple[float, float, float] = (0.75, 0.1, 0.1)
+    target_surface_rgb: tuple[float, float, float] = (0.75, 0.1, 0.75)
     target_surface_y: float = table_pose.y
     target_surface_theta: float = table_pose.theta
     target_surface_height: float = table_height
 
     # Target block hyperparameters.
-    target_block_rgb: tuple[float, float, float] = (0.75, 0.1, 0.1)
+    target_block_rgb: tuple[float, float, float] = (0.75, 0.1, 0.75)
     target_block_y: float = table_pose.y + table_height
     target_block_theta: float = table_pose.theta
     target_block_height: float = robot_base_radius
+
+    # Obstruction hyperparameters.
+    obstruction_rgb: tuple[float, float, float] = (0.75, 0.1, 0.1)
+    obstruction_y: float = table_pose.y + table_height
+    obstruction_theta: float = table_pose.theta
+    obstruction_height: float = robot_base_radius
 
     # For rendering.
     render_dpi: int = 200
@@ -133,7 +139,7 @@ class Obstruction2DEnv(Geom2DRobotEnv):
         target_block = RectangleType("target_block")
         # TODO randomize x and width.
         init_state_dict[target_block] = {
-            "x": (self._spec.world_max_x + self._spec.world_min_x) / 2,  # TODO
+            "x": 0.1,  # TODO
             "y": self._spec.target_block_y,
             "theta": self._spec.target_block_theta,
             "width": self._spec.robot_base_radius * 2,  # TODO
@@ -142,6 +148,23 @@ class Obstruction2DEnv(Geom2DRobotEnv):
             "color_r": self._spec.target_block_rgb[0],
             "color_g": self._spec.target_block_rgb[1],
             "color_b": self._spec.target_block_rgb[2],
+            "z_order": ZOrder.ALL.value,
+        }
+
+        # Create obstructions.
+        # TODO allow multiple obstructions.
+        obstruction = RectangleType("obstruction0")
+        # TODO randomize x and width.
+        init_state_dict[obstruction] = {
+            "x": (self._spec.world_max_x + self._spec.world_min_x) / 2,  # TODO
+            "y": self._spec.obstruction_y,
+            "theta": self._spec.obstruction_theta,
+            "width": self._spec.robot_base_radius * 2,  # TODO
+            "height": self._spec.obstruction_height,
+            "static": False,
+            "color_r": self._spec.obstruction_rgb[0],
+            "color_g": self._spec.obstruction_rgb[1],
+            "color_b": self._spec.obstruction_rgb[2],
             "z_order": ZOrder.ALL.value,
         }
 
