@@ -5,7 +5,6 @@ import argparse
 import gymnasium as gym
 from gymnasium.wrappers import RecordVideo
 
-# Needed to register environments for gym.make().
 from geom2drobotenvs import register_all_environments
 
 

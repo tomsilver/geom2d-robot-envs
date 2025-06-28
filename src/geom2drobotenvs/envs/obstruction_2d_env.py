@@ -141,6 +141,7 @@ class Obstruction2DEnv(Geom2DRobotEnv):
         )
         n = self._spec.max_initial_state_sampling_attempts
         for _ in range(n):
+            # TODO update to add probability of sampling each block on the target surface
             # Sample all randomized values.
             robot_pose = sample_se2_pose(
                 self._spec.robot_init_pose_bounds, self._np_random

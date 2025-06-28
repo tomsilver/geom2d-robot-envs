@@ -2,6 +2,7 @@
 .python-version
 *.mp4
 *videos
+*gifs
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
