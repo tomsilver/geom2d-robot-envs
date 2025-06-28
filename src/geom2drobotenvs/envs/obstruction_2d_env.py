@@ -79,7 +79,6 @@ class Obstruction2DEnv(Geom2DRobotEnv):
         self._spec: Obstruction2DEnvSpec = spec  # for type checking
 
     def _sample_initial_state(self) -> ObjectCentricState:
-        # TODO randomize.
         init_state_dict: dict[Object, dict[str, float]] = {}
 
         # Create the robot at the top center of the world.
@@ -139,7 +138,7 @@ class Obstruction2DEnv(Geom2DRobotEnv):
             "theta": self._spec.target_block_theta,
             "width": self._spec.robot_base_radius * 2,  # TODO
             "height": self._spec.target_block_height,
-            "static": True,
+            "static": False,
             "color_r": self._spec.target_block_rgb[0],
             "color_g": self._spec.target_block_rgb[1],
             "color_b": self._spec.target_block_rgb[2],
