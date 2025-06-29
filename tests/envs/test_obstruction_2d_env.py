@@ -2,6 +2,8 @@
 
 import gymnasium as gym
 import numpy as np
+from conftest import MAKE_VIDEOS
+from gymnasium.wrappers import RecordVideo
 
 from geom2drobotenvs import register_all_environments
 from geom2drobotenvs.concepts import is_on
@@ -71,9 +73,8 @@ def test_successful_pick_place_no_obstructions():
     )
     env = Obstruction2DEnv(num_obstructions=0, spec=spec)
 
-    # Uncomment to record videos.
-    # from gymnasium.wrappers import RecordVideo
-    # env = RecordVideo(env, "unit_test_videos")
+    if MAKE_VIDEOS:
+        env = RecordVideo(env, "unit_test_videos")
 
     pick = create_rectangle_vaccum_pick_option(env.action_space)
     place = create_rectangle_vaccum_table_place_on_option(env.action_space)
@@ -139,9 +140,8 @@ def test_successful_pick_place_one_obstruction():
     )
     env = Obstruction2DEnv(num_obstructions=1, spec=spec)
 
-    # Uncomment to record videos.
-    # from gymnasium.wrappers import RecordVideo
-    # env = RecordVideo(env, "unit_test_videos")
+    if MAKE_VIDEOS:
+        env = RecordVideo(env, "unit_test_videos")
 
     pick = create_rectangle_vaccum_pick_option(env.action_space)
     place = create_rectangle_vaccum_table_place_on_option(env.action_space)
