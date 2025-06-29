@@ -1,5 +1,7 @@
 """Tests for skills.py."""
 
+from conftest import MAKE_VIDEOS
+from gymnasium.wrappers import RecordVideo
 from relational_structs import ObjectCentricState
 
 from geom2drobotenvs.concepts import is_inside
@@ -16,9 +18,8 @@ def test_crv_pick_and_place():
     """Tests for pick and place skills with the CRV robot."""
     env = ThreeTableEnv(num_blocks=4)
 
-    # Uncomment to record videos.
-    # from gymnasium.wrappers import RecordVideo
-    # env = RecordVideo(env, "unit_test_videos")
+    if MAKE_VIDEOS:
+        env = RecordVideo(env, "unit_test_videos")
 
     pick = create_rectangle_vaccum_pick_option(env.action_space)
     place = create_rectangle_vaccum_table_place_inside_option(env.action_space)
