@@ -8,8 +8,8 @@ from geom2drobotenvs.concepts import is_inside
 from geom2drobotenvs.envs.three_table_env import ThreeTableEnv
 from geom2drobotenvs.object_types import CRVRobotType, RectangleType
 from geom2drobotenvs.skills import (
-    create_rectangle_vaccum_pick_option,
-    create_rectangle_vaccum_table_place_inside_option,
+    create_rectangle_vacuum_pick_option,
+    create_rectangle_vacuum_table_place_inside_option,
 )
 from geom2drobotenvs.structs import ZOrder
 
@@ -21,8 +21,8 @@ def test_crv_pick_and_place():
     if MAKE_VIDEOS:
         env = RecordVideo(env, "unit_test_videos")
 
-    pick = create_rectangle_vaccum_pick_option(env.action_space)
-    place = create_rectangle_vaccum_table_place_inside_option(env.action_space)
+    pick = create_rectangle_vacuum_pick_option(env.action_space)
+    place = create_rectangle_vacuum_table_place_inside_option(env.action_space)
 
     obs, _ = env.reset()
     assert isinstance(obs, ObjectCentricState)

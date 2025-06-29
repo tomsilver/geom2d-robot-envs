@@ -16,8 +16,8 @@ from geom2drobotenvs.envs.obstruction_2d_env import (
     TargetSurfaceType,
 )
 from geom2drobotenvs.skills import (
-    create_rectangle_vaccum_pick_option,
-    create_rectangle_vaccum_table_place_on_option,
+    create_rectangle_vacuum_pick_option,
+    create_rectangle_vacuum_table_place_on_option,
 )
 from geom2drobotenvs.structs import SE2Pose
 
@@ -76,8 +76,8 @@ def test_successful_pick_place_no_obstructions():
     if MAKE_VIDEOS:
         env = RecordVideo(env, "unit_test_videos")
 
-    pick = create_rectangle_vaccum_pick_option(env.action_space)
-    place = create_rectangle_vaccum_table_place_on_option(env.action_space)
+    pick = create_rectangle_vacuum_pick_option(env.action_space)
+    place = create_rectangle_vacuum_table_place_on_option(env.action_space)
 
     obs, _ = env.reset(seed=123)
     robot = obs.get_objects(CRVRobotType)[0]
@@ -143,8 +143,8 @@ def test_successful_pick_place_one_obstruction():
     if MAKE_VIDEOS:
         env = RecordVideo(env, "unit_test_videos")
 
-    pick = create_rectangle_vaccum_pick_option(env.action_space)
-    place = create_rectangle_vaccum_table_place_on_option(env.action_space)
+    pick = create_rectangle_vacuum_pick_option(env.action_space)
+    place = create_rectangle_vacuum_table_place_on_option(env.action_space)
 
     obs, _ = env.reset(seed=123)
     robot = obs.get_objects(CRVRobotType)[0]

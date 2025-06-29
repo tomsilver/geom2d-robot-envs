@@ -102,7 +102,7 @@ def _get_motion_plan_to_rectangle_side(
     )
 
 
-def create_rectangle_vaccum_pick_option(action_space: Space) -> ParameterizedOption:
+def create_rectangle_vacuum_pick_option(action_space: Space) -> ParameterizedOption:
     """Use motion planning to get to a pre-pick pose, extend the arm, turn on
     the vacuum, and then retract the arm."""
 
@@ -193,7 +193,7 @@ def create_rectangle_vaccum_pick_option(action_space: Space) -> ParameterizedOpt
     return ParameterizedOption(name, params_space, _policy, _initiable, _terminal)
 
 
-def create_rectangle_vaccum_table_place_inside_option(
+def create_rectangle_vacuum_table_place_inside_option(
     action_space: Space,
 ) -> ParameterizedOption:
     """Use motion planning to get to a pre-place pose, extend the arm, turn off
@@ -303,10 +303,10 @@ def create_rectangle_vaccum_table_place_inside_option(
     return ParameterizedOption(name, params_space, _policy, _initiable, _terminal)
 
 
-def create_rectangle_vaccum_table_place_on_option(
+def create_rectangle_vacuum_table_place_on_option(
     action_space: Space,
 ) -> ParameterizedOption:
-    """Similar to create_rectangle_vaccum_table_place_inside_option(), except
+    """Similar to create_rectangle_vacuum_table_place_inside_option(), except
     assumes the world is oriented in x/y plane with placing happening in the
     "down y" direction."""
 
