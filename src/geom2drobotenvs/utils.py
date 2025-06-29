@@ -153,8 +153,7 @@ def _robot_to_multibody2d(obj: Object, state: ObjectCentricState) -> MultiBody2D
             rotation_about_center=theta,
         )
         z_order = ZOrder.NONE  # NOTE: suction collides with nothing
-        yellow = (255 / 255, 255 / 255, 153 / 255)
-        rendering_kwargs = {"facecolor": yellow}
+        rendering_kwargs = {"facecolor": BLACK}
         suction = Body2D(geom, z_order, rendering_kwargs, name="suction")
         bodies.append(suction)
 

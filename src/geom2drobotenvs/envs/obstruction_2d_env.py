@@ -57,7 +57,7 @@ class Obstruction2DEnvSpec(Geom2DRobotEnvSpec):
 
     # Robot hyperparameters.
     robot_base_radius: float = 0.1
-    robot_arm_length: float = 6 * robot_base_radius
+    robot_arm_length: float = 2 * robot_base_radius
     robot_gripper_height: float = 0.07
     robot_gripper_width: float = 0.01
     robot_init_pose_bounds: tuple[SE2Pose, SE2Pose] = (
