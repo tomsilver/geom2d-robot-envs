@@ -2,9 +2,12 @@
 
 import gymnasium as gym
 import numpy as np
+from conftest import MAKE_VIDEOS
+from gymnasium.wrappers import RecordVideo
 from relational_structs import Object, ObjectCentricState, ObjectCentricStateSpace
 from relational_structs.utils import create_state_from_dict
 
+from geom2drobotenvs import register_all_environments
 from geom2drobotenvs.envs.three_table_env import ThreeTableEnv
 from geom2drobotenvs.object_types import (
     CRVRobotType,
@@ -32,7 +35,12 @@ def test_three_table_env():
 
 def _get_world_boundaries(env: ThreeTableEnv) -> tuple[float, float, float, float]:
     # pylint: disable=protected-access
-    return (env._world_min_x, env._world_min_y, env._world_max_x, env._world_max_y)
+    return (
+        env._spec.world_min_x,
+        env._spec.world_min_y,
+        env._spec.world_max_x,
+        env._spec.world_max_y,
+    )
 
 
 def _create_common_state_dict(env: ThreeTableEnv) -> dict[Object, dict[str, float]]:
@@ -72,11 +80,11 @@ def _create_common_state_dict(env: ThreeTableEnv) -> dict[Object, dict[str, floa
 
 def test_three_table_robot_moves():
     """Test basic movements of the robot in ThreeTableEnv()."""
+    register_all_environments()
     env = gym.make("geom2drobotenvs/ThreeTables-v0", num_blocks=5)
 
-    # Uncomment to record videos.
-    # from gymnasium.wrappers.record_video import RecordVideo
-    # env = RecordVideo(env, "unit_test_videos")
+    if MAKE_VIDEOS:
+        env = RecordVideo(env, "unit_test_videos")
 
     world_min_x, _, world_max_x, world_max_y = _get_world_boundaries(env.unwrapped)
 
@@ -131,9 +139,8 @@ def test_three_table_robot_table_collisions():
     """Test that only the robot base collides with a table."""
     env = ThreeTableEnv()
 
-    # Uncomment to record videos.
-    # from gymnasium.wrappers.record_video import RecordVideo
-    # env = RecordVideo(env, "unit_test_videos")
+    if MAKE_VIDEOS:
+        env = RecordVideo(env, "unit_test_videos")
 
     # Reset the state.
     init_state_dict = _create_common_state_dict(env.unwrapped)
@@ -194,9 +201,8 @@ def test_three_table_vacuum():
     """Tests for picking/placing up one or more objects with the vacuum."""
     env = ThreeTableEnv()
 
-    # Uncomment to record videos.
-    # from gymnasium.wrappers.record_video import RecordVideo
-    # env = RecordVideo(env, "unit_test_videos")
+    if MAKE_VIDEOS:
+        env = RecordVideo(env, "unit_test_videos")
 
     assert isinstance(env.action_space, CRVRobotActionSpace)
 
