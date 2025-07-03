@@ -59,12 +59,14 @@ class Geom2DRobotEnv(gym.Env):
     """
 
     # Only RGB rendering is implemented.
-    render_mode = "rgb_array"
-    metadata = {"render_modes": [render_mode]}
+    metadata = {"render_modes": ["rgb_array"]}
 
-    def __init__(self, spec: Geom2DRobotEnvSpec) -> None:
+    def __init__(
+        self, spec: Geom2DRobotEnvSpec, render_mode: str | None = "rgb_array"
+    ) -> None:
         self._spec = spec
         self._types = {RectangleType, CRVRobotType}
+        self.render_mode = render_mode
         self.observation_space = ObjectCentricStateSpace(self._types)
         self.action_space = CRVRobotActionSpace(
             min_dx=self._spec.min_dx,
