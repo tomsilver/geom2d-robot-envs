@@ -49,6 +49,28 @@ class CRVRobotActionSpace(Box):
         high = np.array([max_dx, max_dy, max_dtheta, max_darm, max_vac])
         super().__init__(low, high)
 
+    def create_markdown_description(self) -> str:
+        """Create a human-readable markdown description of this space."""
+        # pylint: disable=line-too-long
+        features = [
+            ("dx", "Change in robot x position (positive is right)"),
+            ("dy", "Change in robot y position (positive is up)"),
+            ("dtheta", "Change in robot angle in radians (positive is ccw)"),
+            ("darm", "Change in robot arm length (positive is out)"),
+            ("vac", "Directly sets the vacuum (0.0 is off, 1.0 is on)"),
+        ]
+        md_table_str = (
+            "| **Index** | **Feature** | **Description** | **Min** | **Max** |"
+        )
+        md_table_str += "\n| --- | --- | --- | --- | --- |"
+        for idx, (feature, description) in enumerate(features):
+            lb = self.low[idx]
+            ub = self.high[idx]
+            md_table_str += (
+                f"\n| {idx} | {feature} | {description} | {lb:.3f} | {ub:.3f} |"
+            )
+        return f"The entries of an array in this Box space correspond to the following action features:\n{md_table_str}\n"
+
 
 def object_to_multibody2d(
     obj: Object,
