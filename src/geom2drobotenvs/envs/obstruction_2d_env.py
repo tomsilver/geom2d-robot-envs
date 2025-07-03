@@ -139,8 +139,9 @@ class Obstruction2DEnv(Geom2DRobotEnv):
         self,
         num_obstructions: int = 2,
         spec: Obstruction2DEnvSpec = Obstruction2DEnvSpec(),
+        **kwargs,
     ) -> None:
-        super().__init__(spec)
+        super().__init__(spec, **kwargs)
         self._num_obstructions = num_obstructions
         self._spec: Obstruction2DEnvSpec = spec  # for type checking
 
@@ -157,19 +158,19 @@ class Obstruction2DEnv(Geom2DRobotEnv):
         for _ in range(n):
             # Sample all randomized values.
             robot_pose = sample_se2_pose(
-                self._spec.robot_init_pose_bounds, self._np_random
+                self._spec.robot_init_pose_bounds, self.np_random
             )
             target_block_pose = sample_se2_pose(
-                self._spec.target_block_init_pose_bounds, self._np_random
+                self._spec.target_block_init_pose_bounds, self.np_random
             )
             target_block_shape = (
-                self._np_random.uniform(*self._spec.target_block_width_bounds),
-                self._np_random.uniform(*self._spec.target_block_height_bounds),
+                self.np_random.uniform(*self._spec.target_block_width_bounds),
+                self.np_random.uniform(*self._spec.target_block_height_bounds),
             )
             target_surface_pose = sample_se2_pose(
-                self._spec.target_surface_init_pose_bounds, self._np_random
+                self._spec.target_surface_init_pose_bounds, self.np_random
             )
-            target_surface_width_addition = self._np_random.uniform(
+            target_surface_width_addition = self.np_random.uniform(
                 *self._spec.target_surface_width_addition_bounds
             )
             target_surface_shape = (
@@ -179,11 +180,11 @@ class Obstruction2DEnv(Geom2DRobotEnv):
             obstructions: list[tuple[SE2Pose, tuple[float, float]]] = []
             for _ in range(self._num_obstructions):
                 obstruction_shape = (
-                    self._np_random.uniform(*self._spec.obstruction_width_bounds),
-                    self._np_random.uniform(*self._spec.obstruction_height_bounds),
+                    self.np_random.uniform(*self._spec.obstruction_width_bounds),
+                    self.np_random.uniform(*self._spec.obstruction_height_bounds),
                 )
                 obstruction_init_on_target = (
-                    self._np_random.uniform()
+                    self.np_random.uniform()
                     < self._spec.obstruction_init_on_target_prob
                 )
                 if obstruction_init_on_target:
@@ -195,7 +196,7 @@ class Obstruction2DEnv(Geom2DRobotEnv):
                     pose_bounds = (new_lb, new_ub)
                 else:
                     pose_bounds = self._spec.obstruction_init_pose_bounds
-                obstruction_pose = sample_se2_pose(pose_bounds, self._np_random)
+                obstruction_pose = sample_se2_pose(pose_bounds, self.np_random)
                 obstructions.append((obstruction_pose, obstruction_shape))
             state = self._create_initial_state(
                 constant_initial_state_dict,
