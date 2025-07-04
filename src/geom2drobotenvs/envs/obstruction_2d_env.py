@@ -147,12 +147,15 @@ class Obstruction2DEnv(Geom2DRobotEnv):
 
     def _sample_initial_state(self) -> ObjectCentricState:
         constant_initial_state_dict = self._create_constant_initial_state_dict()
+        temp_init_state = create_state_from_dict(
+            constant_initial_state_dict, Geom2DRobotEnvTypeFeatures
+        )
+        static_objects = set(temp_init_state)
         assert not state_has_collision(
-            create_state_from_dict(
-                constant_initial_state_dict, Geom2DRobotEnvTypeFeatures
-            ),
+            temp_init_state,
+            static_objects,
+            static_objects,
             {},
-            check_moving_objects_only=False,
         )
         n = self._spec.max_initial_state_sampling_attempts
         for _ in range(n):
@@ -216,7 +219,8 @@ class Obstruction2DEnv(Geom2DRobotEnv):
             target_surface = target_surfaces[0]
             if is_on(state, target_object, target_surface, {}):
                 continue
-            if state_has_collision(state, {}, check_moving_objects_only=False):
+            all_objects = set(state)
+            if state_has_collision(state, all_objects, all_objects, {}):
                 continue
             return state
         raise RuntimeError(f"Failed to sample initial state after {n} attempts")
