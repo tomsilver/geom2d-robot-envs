@@ -252,3 +252,6 @@ class ThreeTableEnv(Geom2DRobotEnv):
         init_state_dict.update(wall_state_dict)
         # Finalize state.
         return create_state_from_dict(init_state_dict, Geom2DRobotEnvTypeFeatures)
+
+    def _get_reward_and_done(self) -> tuple[float, bool]:
+        return 0.0, False
