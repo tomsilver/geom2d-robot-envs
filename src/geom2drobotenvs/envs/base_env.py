@@ -91,6 +91,10 @@ class Geom2DRobotEnv(gym.Env):
     def _sample_initial_state(self) -> ObjectCentricState:
         """Use self.np_random to sample an initial state."""
 
+    @abc.abstractmethod
+    def _get_reward_and_done(self) -> tuple[float, bool]:
+        """Calculate reward and termination based on self._current_state."""
+
     def _get_obs(self) -> ObjectCentricState:
         assert self._current_state is not None, "Need to call reset()"
         return self._current_state.copy()
@@ -165,10 +169,8 @@ class Geom2DRobotEnv(gym.Env):
         ):
             self._current_state = state
 
-        # NOTE: add goals in the future.
-        terminated = False
+        reward, terminated = self._get_reward_and_done()
         truncated = False  # no maximum horizon, by default
-        reward = 1 if terminated else 0  # binary sparse rewards
         observation = self._get_obs()
         info = self._get_info()
         return observation, reward, terminated, truncated, info

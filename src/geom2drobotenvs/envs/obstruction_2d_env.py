@@ -13,7 +13,7 @@ from geom2drobotenvs.object_types import (
     Geom2DRobotEnvTypeFeatures,
     RectangleType,
 )
-from geom2drobotenvs.structs import ZOrder
+from geom2drobotenvs.structs import MultiBody2D, ZOrder
 from geom2drobotenvs.utils import (
     PURPLE,
     CRVRobotActionSpace,
@@ -211,13 +211,7 @@ class Obstruction2DEnv(Geom2DRobotEnv):
                 obstructions,
             )
             # Check initial state validity: goal not satisfied and no collisions.
-            target_objects = state.get_objects(TargetBlockType)
-            assert len(target_objects) == 1
-            target_object = target_objects[0]
-            target_surfaces = state.get_objects(TargetSurfaceType)
-            assert len(target_surfaces) == 1
-            target_surface = target_surfaces[0]
-            if is_on(state, target_object, target_surface, {}):
+            if self._target_satisfied(state, {}):
                 continue
             all_objects = set(state)
             if state_has_collision(state, all_objects, all_objects, {}):
@@ -337,3 +331,24 @@ class Obstruction2DEnv(Geom2DRobotEnv):
 
         # Finalize state.
         return create_state_from_dict(init_state_dict, Geom2DRobotEnvTypeFeatures)
+
+    def _target_satisfied(
+        self,
+        state: ObjectCentricState,
+        static_object_body_cache: dict[Object, MultiBody2D],
+    ) -> bool:
+        target_objects = state.get_objects(TargetBlockType)
+        assert len(target_objects) == 1
+        target_object = target_objects[0]
+        target_surfaces = state.get_objects(TargetSurfaceType)
+        assert len(target_surfaces) == 1
+        target_surface = target_surfaces[0]
+        return is_on(state, target_object, target_surface, static_object_body_cache)
+
+    def _get_reward_and_done(self) -> tuple[float, bool]:
+        # Terminate when target object is on the target surface. Give -1 reward
+        # at every step until then to encourage fast completion.
+        terminated = self._target_satisfied(
+            self._current_state, self._static_object_body_cache
+        )
+        return -1.0, terminated
