@@ -169,7 +169,11 @@ def create_rectangle_vacuum_pick_option(action_space: Space) -> ParameterizedOpt
             target_state.set(robot, "y", final_pose.y)
             target_state.set(robot, "theta", final_pose.theta)
             target_state.set(robot, "arm_joint", arm_length)
-            if state_has_collision(target_state, static_object_body_cache):
+            moving_objects = {robot}
+            obstacles = set(target_state) - moving_objects
+            if state_has_collision(
+                target_state, moving_objects, obstacles, static_object_body_cache
+            ):
                 continue
             # Found a valid plan; convert it to an action plan and finish.
             action_plan = crv_pose_plan_to_action_plan(pose_plan, action_space)
@@ -258,7 +262,11 @@ def create_rectangle_vacuum_table_place_inside_option(
                 arm_joint += arm_dx
                 sim_state.set(robot, "arm_joint", arm_joint)
                 snap_suctioned_objects(sim_state, robot, suctioned_objs)
-                if state_has_collision(sim_state, static_object_body_cache):
+                moving_objects = {robot} | {o for o, _ in suctioned_objs}
+                obstacles = set(sim_state) - moving_objects
+                if state_has_collision(
+                    sim_state, moving_objects, obstacles, static_object_body_cache
+                ):
                     # Roll back the change.
                     arm_joint -= arm_dx
                     sim_state.set(robot, "arm_joint", arm_joint)
@@ -373,7 +381,11 @@ def create_rectangle_vacuum_table_place_on_option(
             arm_joint += arm_dx
             sim_state.set(robot, "arm_joint", arm_joint)
             snap_suctioned_objects(sim_state, robot, suctioned_objs)
-            if state_has_collision(sim_state, static_object_body_cache):
+            moving_objects = {robot} | {o for o, _ in suctioned_objs}
+            obstacles = set(sim_state) - moving_objects
+            if state_has_collision(
+                sim_state, moving_objects, obstacles, static_object_body_cache
+            ):
                 # Roll back the change.
                 arm_joint -= arm_dx
                 sim_state.set(robot, "arm_joint", arm_joint)

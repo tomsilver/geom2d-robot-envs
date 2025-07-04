@@ -164,9 +164,13 @@ def _robot_to_multibody2d(obj: Object, state: ObjectCentricState) -> MultiBody2D
     # If the vacuum is on, add a suction area.
     if state.get(obj, "vacuum") > 0.5:
         suction_height = gripper_height
-        suction_width = gripper_width / 3
-        suction_cx = base_x + np.cos(theta) * (arm_joint + gripper_width / 2)
-        suction_cy = base_y + np.sin(theta) * (arm_joint + gripper_width / 2)
+        suction_width = gripper_width
+        suction_cx = base_x + np.cos(theta) * (
+            arm_joint + gripper_width + suction_width / 2
+        )
+        suction_cy = base_y + np.sin(theta) * (
+            arm_joint + gripper_width + suction_width / 2
+        )
         geom = Rectangle.from_center(
             center_x=suction_cx,
             center_y=suction_cy,
@@ -175,7 +179,7 @@ def _robot_to_multibody2d(obj: Object, state: ObjectCentricState) -> MultiBody2D
             rotation_about_center=theta,
         )
         z_order = ZOrder.NONE  # NOTE: suction collides with nothing
-        rendering_kwargs = {"facecolor": BLACK}
+        rendering_kwargs = {"facecolor": PURPLE}
         suction = Body2D(geom, z_order, rendering_kwargs, name="suction")
         bodies.append(suction)
 
@@ -330,29 +334,18 @@ def render_state(
 
 def state_has_collision(
     state: ObjectCentricState,
+    group1: set[Object],
+    group2: set[Object],
     static_object_cache: dict[Object, MultiBody2D],
-    check_moving_objects_only: bool = True,
 ) -> bool:
-    """Check for collisions between objects."""
-    # Collect all robots and attachments.
-    robots_and_attachments = state.get_objects(CRVRobotType)
-    for robot in state.get_objects(CRVRobotType):
-        suctioned_objs = {o for o, _ in get_suctioned_objects(state, robot)}
-        robots_and_attachments.extend(suctioned_objs)
-    # Collect all obstacles.
-    obstacles = [o for o in state if o not in robots_and_attachments]
+    """Check for collisions between any objects in two groups."""
     # Create multibodies once.
     obj_to_multibody = {
         o: object_to_multibody2d(o, state, static_object_cache) for o in state
     }
-    # Check pairwise, depending on check_moving_objects_only.
-    if check_moving_objects_only:
-        obj_group1 = robots_and_attachments
-    else:
-        obj_group1 = robots_and_attachments + obstacles
-    obj_group2 = obstacles
-    for obj1 in obj_group1:
-        for obj2 in obj_group2:
+    # Check pairwise collisions.
+    for obj1 in group1:
+        for obj2 in group2:
             if obj1 == obj2:
                 continue
             multibody1 = obj_to_multibody[obj1]
@@ -562,7 +555,14 @@ def run_motion_planning_for_crv_robot(
         static_state.set(robot, "y", pt.y)
         static_state.set(robot, "theta", pt.theta)
 
-        return state_has_collision(static_state, static_object_body_cache)
+        # NOTE: checking collisions for snapped objects is missing! This is
+        # therefore incorrect.
+        moving_objects = {robot}
+        obstacle_objects = set(static_state) - {robot}
+
+        return state_has_collision(
+            static_state, moving_objects, obstacle_objects, static_object_body_cache
+        )
 
     def distance_fn(pt1: SE2Pose, pt2: SE2Pose) -> float:
         """Return a distance between the two points."""

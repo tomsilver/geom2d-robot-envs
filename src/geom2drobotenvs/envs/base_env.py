@@ -142,18 +142,33 @@ class Geom2DRobotEnv(gym.Env):
         state.set(robot, "theta", new_theta)
         state.set(robot, "vacuum", vac)
 
+        # The order here is subtle and important:
+        # 1) Look at which objects were suctioned in the *previous* time step.
+        # 2) Get the transform between gripper and object in the *previous*.
+        # 3) Update the position of the object to snap to the robot *now*.
+        # 4) When checking collisions, make sure to include all objects that
+        #    may have moved. This cannot be derived from `state` alone!
+        # The last point was previously overlook and led to bugs where the held
+        # objects could come into collision with other objects if the suction is
+        # disabled at the right time.
+
         # Update the state of any objects that are currently suctioned.
+        # NOTE: this is both objects and their SE2 transforms.
         suctioned_objs = get_suctioned_objects(self._current_state, robot)
         snap_suctioned_objects(state, robot, suctioned_objs)
 
         # Check for collisions, and only update the state if none exist.
-        if not state_has_collision(state, self._static_object_body_cache):
+        moving_objects = {robot} | {o for o, _ in suctioned_objs}
+        obstacles = set(state) - moving_objects
+        if not state_has_collision(
+            state, moving_objects, obstacles, self._static_object_body_cache
+        ):
             self._current_state = state
 
         # NOTE: add goals in the future.
         terminated = False
-        truncated = False  # No maximum horizon, by default
-        reward = 1 if terminated else 0  # Binary sparse rewards
+        truncated = False  # no maximum horizon, by default
+        reward = 1 if terminated else 0  # binary sparse rewards
         observation = self._get_obs()
         info = self._get_info()
         return observation, reward, terminated, truncated, info
