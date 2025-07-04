@@ -30,7 +30,7 @@ def is_on(
     top: Object,
     bottom: Object,
     static_object_cache: dict[Object, MultiBody2D],
-    tol: float = 1e-1,
+    tol: float = 0.025,
 ) -> bool:
     """Checks top object is completely on the bottom one.
 
