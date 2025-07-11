@@ -358,6 +358,7 @@ def state_has_collision(
     group1: set[Object],
     group2: set[Object],
     static_object_cache: dict[Object, MultiBody2D],
+    ignore_z_orders: bool = False,
 ) -> bool:
     """Check for collisions between any objects in two groups."""
     # Create multibodies once.
@@ -373,7 +374,10 @@ def state_has_collision(
             multibody2 = obj_to_multibody[obj2]
             for body1 in multibody1.bodies:
                 for body2 in multibody2.bodies:
-                    if not z_orders_may_collide(body1.z_order, body2.z_order):
+                    if not (
+                        ignore_z_orders
+                        or z_orders_may_collide(body1.z_order, body2.z_order)
+                    ):
                         continue
                     if geom2ds_intersect(body1.geom, body2.geom):
                         return True
