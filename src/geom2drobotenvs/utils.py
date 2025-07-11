@@ -12,7 +12,12 @@ from tomsgeoms2d.utils import geom2ds_intersect
 from tomsutils.motion_planning import BiRRT
 from tomsutils.utils import fig2data, get_signed_angle_distance, wrap_angle
 
-from geom2drobotenvs.object_types import CRVRobotType, Geom2DType, RectangleType
+from geom2drobotenvs.object_types import (
+    CircleType,
+    CRVRobotType,
+    Geom2DType,
+    RectangleType,
+)
 from geom2drobotenvs.structs import (
     Body2D,
     MultiBody2D,
@@ -91,6 +96,22 @@ def object_to_multibody2d(
         height = state.get(obj, "height")
         theta = state.get(obj, "theta")
         geom = Rectangle(x, y, width, height, theta)
+        z_order = ZOrder(int(state.get(obj, "z_order")))
+        rendering_kwargs = {
+            "facecolor": (
+                state.get(obj, "color_r"),
+                state.get(obj, "color_g"),
+                state.get(obj, "color_b"),
+            ),
+            "edgecolor": BLACK,
+        }
+        body = Body2D(geom, z_order, rendering_kwargs)
+        multibody = MultiBody2D(obj.name, [body])
+    elif obj.is_instance(CircleType):
+        x = state.get(obj, "x")
+        y = state.get(obj, "y")
+        radius = state.get(obj, "radius")
+        geom = Circle(x, y, radius)
         z_order = ZOrder(int(state.get(obj, "z_order")))
         rendering_kwargs = {
             "facecolor": (
