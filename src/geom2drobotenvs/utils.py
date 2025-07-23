@@ -318,6 +318,17 @@ def render_state_on_ax(
         body.plot(ax)
 
 
+# NOTE: a very unfortunate hack to deal with the fact that matplotlib with the macosx
+# backend renders different image sizes depending on your monitor. We want the rendered
+# image size (in pixels) to be consistent across machines and backends. So we calculate
+# the expected image size and then adjust the figsize by a scaling factor if needed.
+# And we keep this global scaling factor here so that there is only a one-time rescale.
+# Also note that we keep this to scaling by 2 specifically because experimenting with
+# calculating the figsize scale directly indicates that this is not easy. There are some
+# weird off-by-one issues that are not obviously consistent.
+_SCALE_FIGSIZE_BY_2: bool = False
+
+
 def render_state(
     state: ObjectCentricState,
     static_object_body_cache: dict[Object, MultiBody2D] | None = None,
@@ -331,12 +342,14 @@ def render_state(
 
     Useful for viz and debugging.
     """
+    global _SCALE_FIGSIZE_BY_2  # pylint: disable=global-statement
+
     if static_object_body_cache is None:
         static_object_body_cache = {}
 
     figsize = (
-        world_max_x - world_min_x,
-        world_max_y - world_min_y,
+        (1 + _SCALE_FIGSIZE_BY_2) * (world_max_x - world_min_x),
+        (1 + _SCALE_FIGSIZE_BY_2) * (world_max_y - world_min_y),
     )
     fig, ax = plt.subplots(1, 1, figsize=figsize, dpi=render_dpi)
 
@@ -350,6 +363,22 @@ def render_state(
     plt.tight_layout()
     img = fig2data(fig)
     plt.close()
+
+    # See note above.
+    expected_height = 2 * (world_max_y - world_min_y) * render_dpi
+    if expected_height != img.shape[0]:
+        assert not _SCALE_FIGSIZE_BY_2
+        _SCALE_FIGSIZE_BY_2 = True
+        return render_state(
+            state,
+            static_object_body_cache,
+            world_min_x,
+            world_max_x,
+            world_min_y,
+            world_max_y,
+            render_dpi=render_dpi,
+        )
+
     return img
 
 
