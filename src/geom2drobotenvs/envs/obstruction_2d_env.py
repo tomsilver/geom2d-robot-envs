@@ -94,8 +94,12 @@ class Obstruction2DEnvSpec(Geom2DRobotEnvSpec):
     # Target block hyperparameters.
     target_block_rgb: tuple[float, float, float] = PURPLE
     target_block_init_pose_bounds: tuple[SE2Pose, SE2Pose] = (
-        SE2Pose(world_min_x + robot_base_radius, table_pose.y + table_height, 0.0),
-        SE2Pose(world_max_x - robot_base_radius, table_pose.y + table_height, 0.0),
+        SE2Pose(
+            world_min_x + robot_base_radius, table_pose.y + table_height + 1e-6, 0.0
+        ),
+        SE2Pose(
+            world_max_x - robot_base_radius, table_pose.y + table_height + 1e-6, 0.0
+        ),
     )
     target_block_height_bounds: tuple[float, float] = (
         robot_base_radius / 2,
@@ -109,8 +113,12 @@ class Obstruction2DEnvSpec(Geom2DRobotEnvSpec):
     # Obstruction hyperparameters.
     obstruction_rgb: tuple[float, float, float] = (0.75, 0.1, 0.1)
     obstruction_init_pose_bounds = (
-        SE2Pose(world_min_x + robot_base_radius, table_pose.y + table_height, 0.0),
-        SE2Pose(world_max_x - robot_base_radius, table_pose.y + table_height, 0.0),
+        SE2Pose(
+            world_min_x + robot_base_radius, table_pose.y + table_height + 1e-6, 0.0
+        ),
+        SE2Pose(
+            world_max_x - robot_base_radius, table_pose.y + table_height + 1e-6, 0.0
+        ),
     )
     obstruction_height_bounds: tuple[float, float] = (
         robot_base_radius / 2,
