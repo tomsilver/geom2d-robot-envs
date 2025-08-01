@@ -137,7 +137,7 @@ class Obstruction2DEnvSpec(Geom2DRobotEnvSpec):
     max_initial_state_sampling_attempts: int = 10_000
 
     # For rendering.
-    render_dpi: int = 400
+    render_dpi: int = 250
 
 
 class Obstruction2DEnv(Geom2DRobotEnv):
