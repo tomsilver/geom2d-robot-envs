@@ -83,6 +83,9 @@ class Geom2DRobotEnv(gym.Env):
 
         # Initialized by reset().
         self._current_state: ObjectCentricState | None = None
+        # Maintain an independent initial_constant_state, including static objects
+        # that never change throughout the lifetime of the environment.
+        self._initial_constant_state: ObjectCentricState | None = None
         self._static_object_body_cache: dict[Object, MultiBody2D] = {}
 
         super().__init__()
@@ -178,8 +181,12 @@ class Geom2DRobotEnv(gym.Env):
     def render(self) -> NDArray[np.uint8]:
         assert self.render_mode == "rgb_array"
         assert self._current_state is not None, "Need to call reset()"
+        render_input_state = self._current_state.copy()
+        if self._initial_constant_state is not None:
+            # Merge the initial constant state with the current state.
+            render_input_state.data.update(self._initial_constant_state.data)
         return render_state(
-            self._current_state,
+            render_input_state,
             self._static_object_body_cache,
             self._spec.world_min_x,
             self._spec.world_max_x,
