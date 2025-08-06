@@ -100,7 +100,16 @@ class Geom2DRobotEnv(gym.Env):
 
     def _get_obs(self) -> ObjectCentricState:
         assert self._current_state is not None, "Need to call reset()"
-        return self._current_state.copy()
+        # NOTE: For now, I assume we want to provide the full state
+        # as ObjectCentricState obs, since some options
+        # (e.g., motion planning) might depends on all of them.
+        # Vectorization might drop the constant objects,
+        # but that is a separate question we should discuss.
+        full_state = self._current_state.copy()
+        if self._initial_constant_state is not None:
+            # Merge the initial constant state with the current state.
+            full_state.data.update(self._initial_constant_state.data)
+        return full_state
 
     def _get_info(self) -> dict:
         return {}  # no extra info provided right now
@@ -167,8 +176,12 @@ class Geom2DRobotEnv(gym.Env):
         # Check for collisions, and only update the state if none exist.
         moving_objects = {robot} | {o for o, _ in suctioned_objs}
         obstacles = set(state) - moving_objects
+        full_state = state.copy()
+        if self._initial_constant_state is not None:
+            # Merge the initial constant state with the current state.
+            full_state.data.update(self._initial_constant_state.data)
         if not state_has_collision(
-            state, moving_objects, obstacles, self._static_object_body_cache
+            full_state, moving_objects, obstacles, self._static_object_body_cache
         ):
             self._current_state = state
 
