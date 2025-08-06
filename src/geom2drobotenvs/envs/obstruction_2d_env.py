@@ -152,15 +152,16 @@ class Obstruction2DEnv(Geom2DRobotEnv):
         super().__init__(spec, **kwargs)
         self._num_obstructions = num_obstructions
         self._spec: Obstruction2DEnvSpec = spec  # for type checking
+        initial_state_dict = self._create_constant_initial_state_dict()
+        self._initial_constant_state = create_state_from_dict(
+            initial_state_dict, Geom2DRobotEnvTypeFeatures
+        )
 
     def _sample_initial_state(self) -> ObjectCentricState:
-        constant_initial_state_dict = self._create_constant_initial_state_dict()
-        temp_init_state = create_state_from_dict(
-            constant_initial_state_dict, Geom2DRobotEnvTypeFeatures
-        )
-        static_objects = set(temp_init_state)
+        assert self._initial_constant_state is not None
+        static_objects = set(self._initial_constant_state)
         assert not state_has_collision(
-            temp_init_state,
+            self._initial_constant_state,
             static_objects,
             static_objects,
             {},
@@ -210,7 +211,6 @@ class Obstruction2DEnv(Geom2DRobotEnv):
                 obstruction_pose = sample_se2_pose(pose_bounds, self.np_random)
                 obstructions.append((obstruction_pose, obstruction_shape))
             state = self._create_initial_state(
-                constant_initial_state_dict,
                 robot_pose,
                 target_surface_pose,
                 target_surface_shape,
@@ -221,8 +221,10 @@ class Obstruction2DEnv(Geom2DRobotEnv):
             # Check initial state validity: goal not satisfied and no collisions.
             if self._target_satisfied(state, {}):
                 continue
-            all_objects = set(state)
-            if state_has_collision(state, all_objects, all_objects, {}):
+            full_state = state.copy()
+            full_state.data.update(self._initial_constant_state.data)
+            all_objects = set(full_state)
+            if state_has_collision(full_state, all_objects, all_objects, {}):
                 continue
             return state
         raise RuntimeError(f"Failed to sample initial state after {n} attempts")
@@ -265,7 +267,6 @@ class Obstruction2DEnv(Geom2DRobotEnv):
 
     def _create_initial_state(
         self,
-        constant_initial_state_dict: dict[Object, dict[str, float]],
         robot_pose: SE2Pose,
         target_surface_pose: SE2Pose,
         target_surface_shape: tuple[float, float],
@@ -275,7 +276,7 @@ class Obstruction2DEnv(Geom2DRobotEnv):
     ) -> ObjectCentricState:
         # Shallow copy should be okay because the constant objects should not
         # ever change in this method.
-        init_state_dict = constant_initial_state_dict.copy()
+        init_state_dict: dict[Object, dict[str, float]] = {}
 
         # Create the robot.
         robot = CRVRobotType("robot")
