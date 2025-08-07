@@ -175,11 +175,11 @@ class Geom2DRobotEnv(gym.Env):
 
         # Check for collisions, and only update the state if none exist.
         moving_objects = {robot} | {o for o, _ in suctioned_objs}
-        obstacles = set(state) - moving_objects
         full_state = state.copy()
         if self._initial_constant_state is not None:
             # Merge the initial constant state with the current state.
             full_state.data.update(self._initial_constant_state.data)
+        obstacles = set(full_state) - moving_objects
         if not state_has_collision(
             full_state, moving_objects, obstacles, self._static_object_body_cache
         ):
