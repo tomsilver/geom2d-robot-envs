@@ -100,19 +100,39 @@ class Geom2DRobotEnv(gym.Env):
 
     def _get_obs(self) -> ObjectCentricState:
         assert self._current_state is not None, "Need to call reset()"
-        # NOTE: For now, I assume we want to provide the full state
-        # as ObjectCentricState obs, since some options
-        # (e.g., motion planning) might depends on all of them.
-        # Vectorization might drop the constant objects,
-        # but that is a separate question we should discuss.
+        # NOTE: Based on the discussion, we comit to providing
+        # only the changable objects in the state.
+        # A learning-based algorithm has no access to the
+        # initial constant state, as the algorithm should learn
+        # to handle them if they affect decision making.
+
+        # That being said, we still want to provide an interface
+        # for accessing the static objects, as some baselines
+        # (planner model) requires such information.
+        full_state = self._current_state.copy()
+        return full_state
+
+    def _get_info(self) -> dict:
+        return {}  # no extra info provided right now
+
+    @property
+    def initial_constant_state(self) -> ObjectCentricState:
+        """Get the initial constant state, which includes static objects."""
+        assert (
+            self._initial_constant_state is not None
+        ), "This env has no initial constant state"
+        return self._initial_constant_state.copy()
+
+    @property
+    def full_state(self) -> ObjectCentricState:
+        """Get the full state, which includes both dynamic and static
+        objects."""
+        assert self._current_state is not None, "Need to call reset()"
         full_state = self._current_state.copy()
         if self._initial_constant_state is not None:
             # Merge the initial constant state with the current state.
             full_state.data.update(self._initial_constant_state.data)
         return full_state
-
-    def _get_info(self) -> dict:
-        return {}  # no extra info provided right now
 
     def reset(
         self, *, seed: int | None = None, options: dict | None = None
