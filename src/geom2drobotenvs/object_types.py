@@ -28,6 +28,12 @@ CircleType = Type("circle", parent=Geom2DType)
 Geom2DRobotEnvTypeFeatures[CircleType] = Geom2DRobotEnvTypeFeatures[Geom2DType] + [
     "radius"
 ]
+LObjectType = Type("lobject", parent=Geom2DType)
+Geom2DRobotEnvTypeFeatures[LObjectType] = Geom2DRobotEnvTypeFeatures[Geom2DType] + [
+    "width",
+    "length_side1",
+    "length_side2",
+]
 # A robot with a circle base, a rectangle arm, and a vacuum rectangle gripper.
 # The (x, y, theta) are for the center of the robot base circle. The base_radius
 # is for that circle. The arm_joint is a distance between the center and the

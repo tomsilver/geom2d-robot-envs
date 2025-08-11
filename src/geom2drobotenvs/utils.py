@@ -16,6 +16,7 @@ from geom2drobotenvs.object_types import (
     CircleType,
     CRVRobotType,
     Geom2DType,
+    LObjectType,
     RectangleType,
 )
 from geom2drobotenvs.structs import (
@@ -123,6 +124,43 @@ def object_to_multibody2d(
         }
         body = Body2D(geom, z_order, rendering_kwargs)
         multibody = MultiBody2D(obj.name, [body])
+    elif obj.is_instance(LObjectType):
+        # Get parameters
+        x = state.get(obj, "x")
+        y = state.get(obj, "y")
+        theta = state.get(obj, "theta")
+        width = state.get(obj, "width")
+        length_side1 = state.get(obj, "length_side1")
+        length_side2 = state.get(obj, "length_side2")
+        color = (
+            state.get(obj, "color_r"),
+            state.get(obj, "color_g"),
+            state.get(obj, "color_b"),
+        )
+        z_order = ZOrder(int(state.get(obj, "z_order")))
+
+        # Rectangle 1: base (horizontal bar of L)
+        # The base starts at (x, y) and extends length_side1 in direction theta
+        base_start_x = x
+        base_start_y = y
+        base_theta = theta + np.pi
+        base_geom = Rectangle(
+            base_start_x, base_start_y, width, length_side1, base_theta
+        )
+
+        # Rectangle 2: leg (vertical bar of L, attached at base start)
+        leg_theta = theta + np.pi / 2
+        leg_start_x = x
+        leg_start_y = y
+        leg_geom = Rectangle(leg_start_x, leg_start_y, width, length_side2, leg_theta)
+
+        rendering_kwargs = {
+            "facecolor": color,
+            "edgecolor": BLACK,
+        }
+        base_body = Body2D(base_geom, z_order, rendering_kwargs, name="hook_base")
+        leg_body = Body2D(leg_geom, z_order, rendering_kwargs, name="hook_leg")
+        multibody = MultiBody2D(obj.name, [base_body, leg_body])
     else:
         raise NotImplementedError
     if is_static:
