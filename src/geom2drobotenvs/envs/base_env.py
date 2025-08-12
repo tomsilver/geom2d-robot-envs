@@ -100,8 +100,8 @@ class Geom2DRobotEnv(gym.Env):
 
     def _get_obs(self) -> ObjectCentricState:
         assert self._current_state is not None, "Need to call reset()"
-        # NOTE: Based on the discussion, we comit to providing
-        # only the changable objects in the state.
+        # NOTE: Based on the discussion, we commit to providing
+        # only the changeable objects in the state.
         # A learning-based algorithm has no access to the
         # initial constant state, as the algorithm should learn
         # to handle them if they affect decision making.
