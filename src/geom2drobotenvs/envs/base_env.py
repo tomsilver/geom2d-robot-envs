@@ -22,6 +22,7 @@ from geom2drobotenvs.utils import (
     render_state,
     snap_suctioned_objects,
     state_has_collision,
+    move_objects_in_contact
 )
 
 
@@ -173,13 +174,17 @@ class Geom2DRobotEnv(gym.Env):
         suctioned_objs = get_suctioned_objects(self._current_state, robot)
         snap_suctioned_objects(state, robot, suctioned_objs)
 
+        # Update non-static objects if contact is detected between them 
+        # and the suctioned objects.
+        state, moved_objects = move_objects_in_contact(state, robot, suctioned_objs)
+
         # Check for collisions, and only update the state if none exist.
         moving_objects = {robot} | {o for o, _ in suctioned_objs}
         full_state = state.copy()
         if self._initial_constant_state is not None:
             # Merge the initial constant state with the current state.
             full_state.data.update(self._initial_constant_state.data)
-        obstacles = set(full_state) - moving_objects
+        obstacles = set(full_state) - moving_objects - moved_objects
         if not state_has_collision(
             full_state, moving_objects, obstacles, self._static_object_body_cache
         ):

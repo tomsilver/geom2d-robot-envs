@@ -7,8 +7,8 @@ import numpy as np
 from gymnasium.spaces import Box
 from numpy.typing import NDArray
 from relational_structs import Array, Object, ObjectCentricState
-from tomsgeoms2d.structs import Circle, Rectangle
-from tomsgeoms2d.utils import geom2ds_intersect
+from tomsgeoms2d.structs import Circle, Rectangle, Lobject
+from tomsgeoms2d.utils import geom2ds_intersect, find_closest_points
 from tomsutils.motion_planning import BiRRT
 from tomsutils.utils import fig2data, get_signed_angle_distance, wrap_angle
 
@@ -139,28 +139,14 @@ def object_to_multibody2d(
         )
         z_order = ZOrder(int(state.get(obj, "z_order")))
 
-        # Rectangle 1: base (horizontal bar of L)
-        # The base starts at (x, y) and extends length_side1 in direction theta
-        base_start_x = x
-        base_start_y = y
-        base_theta = theta + np.pi
-        base_geom = Rectangle(
-            base_start_x, base_start_y, width, length_side1, base_theta
-        )
-
-        # Rectangle 2: leg (vertical bar of L, attached at base start)
-        leg_theta = theta + np.pi / 2
-        leg_start_x = x
-        leg_start_y = y
-        leg_geom = Rectangle(leg_start_x, leg_start_y, width, length_side2, leg_theta)
+        geom = Lobject(x, y, width, [length_side1, length_side2], theta)
 
         rendering_kwargs = {
             "facecolor": color,
             "edgecolor": BLACK,
         }
-        base_body = Body2D(base_geom, z_order, rendering_kwargs, name="hook_base")
-        leg_body = Body2D(leg_geom, z_order, rendering_kwargs, name="hook_leg")
-        multibody = MultiBody2D(obj.name, [base_body, leg_body])
+        body = Body2D(geom, z_order, rendering_kwargs, name="hook")
+        multibody = MultiBody2D(obj.name, [body])
     else:
         raise NotImplementedError
     if is_static:
@@ -517,6 +503,38 @@ def snap_suctioned_objects(
         state.set(obj, "y", world_to_obj.y)
         state.set(obj, "theta", world_to_obj.theta)
 
+def move_objects_in_contact(
+    state: ObjectCentricState,
+    robot: Object,
+    suctioned_objs: list[tuple[Object, SE2Pose]],
+) -> list[tuple[Object, SE2Pose]]:
+    """Move objects that are in contact with the robot's suctioned objects."""
+    moved_objects = set()
+    moving_objects = {robot} | {o for o, _ in suctioned_objs}
+    nonstatic_objects = {o for o in state if (o not in moving_objects) and (not state.get(o, "static"))}
+
+    for obj in nonstatic_objects:
+        for suctioned_obj, _ in suctioned_objs:
+            body1 = object_to_multibody2d(suctioned_obj, state, {})
+            body2 = object_to_multibody2d(obj, state, {})
+            for b1 in body1.bodies:
+                for b2 in body2.bodies:
+                    if geom2ds_intersect(b1.geom, b2.geom):
+                        closest_points_b1, closest_points_b2, _ = find_closest_points(b1.geom, b2.geom)
+                        contact_vec = np.array(closest_points_b2) - np.array(closest_points_b1)
+
+                        current_x = state.get(obj, "x")
+                        current_y = state.get(obj, "y")
+
+                        new_x = current_x + contact_vec[0]
+                        new_y = current_y + contact_vec[1]
+
+                        state.set(obj, "x", new_x)
+                        state.set(obj, "y", new_y)
+
+                        moved_objects.add((obj, b2.geom))
+
+    return state, moved_objects
 
 def run_motion_planning_for_crv_robot(
     state: ObjectCentricState,
