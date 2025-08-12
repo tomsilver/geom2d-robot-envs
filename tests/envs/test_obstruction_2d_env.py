@@ -146,11 +146,12 @@ def test_successful_pick_place_one_obstruction():
     pick = create_rectangle_vacuum_pick_option(env.action_space)
     place = create_rectangle_vacuum_table_place_on_option(env.action_space)
 
-    obs, _ = env.reset(seed=123)
-    robot = obs.get_objects(CRVRobotType)[0]
-    target_block = obs.get_objects(TargetBlockType)[0]
-    target_surface = obs.get_objects(TargetSurfaceType)[0]
-    rect_name_to_obj = {x.name: x for x in obs.get_objects(RectangleType)}
+    _, _ = env.reset(seed=123)
+    full_obs = env.full_state
+    robot = full_obs.get_objects(CRVRobotType)[0]
+    target_block = full_obs.get_objects(TargetBlockType)[0]
+    target_surface = full_obs.get_objects(TargetSurfaceType)[0]
+    rect_name_to_obj = {x.name: x for x in full_obs.get_objects(RectangleType)}
     obstruction = rect_name_to_obj["obstruction0"]
     table = rect_name_to_obj["table"]
     pick_target = pick.ground([robot, target_block])
@@ -159,14 +160,15 @@ def test_successful_pick_place_one_obstruction():
     place_obstruction = place.ground([robot, obstruction, table])
     # This should work by fluke -- placing should place in the middle.
     for option in [pick_obstruction, place_obstruction, pick_target, place_target]:
-        assert option.initiable(obs)
+        assert option.initiable(full_obs)
         for _ in range(100):  # gratuitous
-            act = option.policy(obs)
-            obs, _, _, _, _ = env.step(act)
-            if option.terminal(obs):
+            act = option.policy(full_obs)
+            _, _, _, _, _ = env.step(act)
+            full_obs = env.full_state
+            if option.terminal(full_obs):
                 break
         else:
             assert False, f"Option {option} did not terminate."
 
-    assert is_on(obs, target_block, target_surface, {})
+    assert is_on(full_obs, target_block, target_surface, {})
     env.close()
