@@ -1,14 +1,14 @@
 """Utilities."""
 
-from typing import Iterable
+from typing import Iterable, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
 from gymnasium.spaces import Box
 from numpy.typing import NDArray
 from relational_structs import Array, Object, ObjectCentricState
-from tomsgeoms2d.structs import Circle, Rectangle, Lobject
-from tomsgeoms2d.utils import geom2ds_intersect, find_closest_points
+from tomsgeoms2d.structs import Circle, Lobject, Rectangle
+from tomsgeoms2d.utils import find_closest_points, geom2ds_intersect
 from tomsutils.motion_planning import BiRRT
 from tomsutils.utils import fig2data, get_signed_angle_distance, wrap_angle
 
@@ -503,15 +503,18 @@ def snap_suctioned_objects(
         state.set(obj, "y", world_to_obj.y)
         state.set(obj, "theta", world_to_obj.theta)
 
+
 def move_objects_in_contact(
     state: ObjectCentricState,
     robot: Object,
     suctioned_objs: list[tuple[Object, SE2Pose]],
-) -> list[tuple[Object, SE2Pose]]:
+) -> Tuple[ObjectCentricState, list[tuple[Object, SE2Pose]]]:
     """Move objects that are in contact with the robot's suctioned objects."""
-    moved_objects = set()
+    moved_objects = []
     moving_objects = {robot} | {o for o, _ in suctioned_objs}
-    nonstatic_objects = {o for o in state if (o not in moving_objects) and (not state.get(o, "static"))}
+    nonstatic_objects = {
+        o for o in state if (o not in moving_objects) and (not state.get(o, "static"))
+    }
 
     for obj in nonstatic_objects:
         for suctioned_obj, _ in suctioned_objs:
@@ -520,8 +523,12 @@ def move_objects_in_contact(
             for b1 in body1.bodies:
                 for b2 in body2.bodies:
                     if geom2ds_intersect(b1.geom, b2.geom):
-                        closest_points_b1, closest_points_b2, _ = find_closest_points(b1.geom, b2.geom)
-                        contact_vec = np.array(closest_points_b2) - np.array(closest_points_b1)
+                        closest_points_b1, closest_points_b2, _ = find_closest_points(
+                            b1.geom, b2.geom
+                        )
+                        contact_vec = np.array(closest_points_b2) - np.array(
+                            closest_points_b1
+                        )
 
                         current_x = state.get(obj, "x")
                         current_y = state.get(obj, "y")
@@ -532,9 +539,10 @@ def move_objects_in_contact(
                         state.set(obj, "x", new_x)
                         state.set(obj, "y", new_y)
 
-                        moved_objects.add((obj, b2.geom))
+                        moved_objects.append((obj, get_se2_pose(state, obj)))
 
     return state, moved_objects
+
 
 def run_motion_planning_for_crv_robot(
     state: ObjectCentricState,
